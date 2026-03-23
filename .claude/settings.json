@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty') && if echo \"$cmd\" | grep -q \"./build.sh\"; then bash /Users/daniel.piazza/Source/simple_text/.claude/bump-version.sh; else echo '{}'; fi || true"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/daniel.piazza/Source/simple_text/.claude/auto-build.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
