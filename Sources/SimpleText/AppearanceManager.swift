@@ -20,12 +20,20 @@ final class AppearanceManager {
         }
     }
 
+    private static let defaultsKey = "appearanceMode"
+
     private(set) var mode: Mode = .dark
     weak var window: NSWindow?
 
     init(window: NSWindow) {
         self.window = window
-        apply(.dark)
+        let saved: Mode
+        switch UserDefaults.standard.string(forKey: Self.defaultsKey) {
+        case "light":  saved = .light
+        case "system": saved = .system
+        default:       saved = .dark
+        }
+        apply(saved)
     }
 
     func toggle() {
@@ -39,5 +47,12 @@ final class AppearanceManager {
         case .dark:   window?.appearance = NSAppearance(named: .darkAqua)
         case .light:  window?.appearance = NSAppearance(named: .aqua)
         }
+        let key: String
+        switch newMode {
+        case .dark:   key = "dark"
+        case .light:  key = "light"
+        case .system: key = "system"
+        }
+        UserDefaults.standard.set(key, forKey: Self.defaultsKey)
     }
 }
