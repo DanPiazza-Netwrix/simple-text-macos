@@ -24,7 +24,7 @@ Always build with `./build.sh` when the user asks to test or verify — this pro
 - If unsure about what version to build, ask the user first
 - Version is kept in sync across: `WindowController.swift` (initial window title), `TabController.swift` (runtime window title via `syncWindow()`), `build.sh` (VERSION variable)
 - Always report the built version in output so user can confirm in Claude Code
-- Current version: 0.0.1.48
+- Current version: 0.0.1.51
 
 ## Architecture
 
@@ -37,7 +37,7 @@ Swift + AppKit, Swift Package Manager. macOS 13+. No Xcode project file.
 - `AppearanceManager.swift` — sets `window.appearance` to force dark/light. All colors elsewhere must be semantic `NSColor` values so they auto-adapt.
 - `LineNumberRulerView.swift` — Plain `NSView` subclass (NOT `NSRulerView`). Positioned as a sibling to the scroll view inside `EditorView`, avoiding all `NSScrollView` ruler machinery (separator lines, dividers). `isFlipped = true` so coordinate math works the same as scroll view content. Uses `NSLayoutManager.enumerateLineFragments` to position numbers. Coordinate math: `rulerY = fragmentRect.midY + textContainerOrigin.y - clipView.bounds.origin.y`. Width is managed via an `NSLayoutConstraint` that is updated dynamically as line count grows.
 - `TabController.swift` — `NSViewController` managing multiple `EditorViewController` instances. Owns a `TabBarView` at top (anchored to `safeAreaLayoutGuide.topAnchor`) and an `editorContainer` below it. Handles tab switching, closing, and opening files without losing the current tab. Wires `onFilesDropped` on each `EditorViewController` so file-URL drops anywhere in the window open a new tab via `openFileInTab(at:)`.
-- `TabBarView.swift` — Custom `NSView` tab bar. Chrome-style tab sizing (fills available width, clamped to min/max). Active tabs get a rounded-rect pill background; inactive tabs are transparent. Contains `TabButton` and `AddTabButton` inner classes.
+- `TabBarView.swift` — Custom `NSView` tab bar. Chrome-style tab sizing (fills available width, clamped to min/max). Active tabs get a rounded-rect pill background; inactive tabs are transparent. Contains `TabButton` and `AddTabButton` inner classes. `TabButton` overrides `menu(for:)` to show a right-click context menu ("Close Tabs to the Right", "Close Other Tabs"); uses `autoenablesItems = false` so items gray out correctly when not applicable (rightmost tab / only tab).
 - `SyntaxHighlighter.swift` — `NSTextStorageDelegate` implementation for Markdown syntax highlighting. Uses VS Code Dark+/Light+ dynamic colors via `NSColor(name:dynamicProvider:)`. Pre-compiled static regex patterns. Activated only for `.md`/`.markdown` files. Guard on `.editedCharacters` prevents infinite attribute-change loops. Wired in `EditorViewController.documentDidLoad`.
 - `FindBarCoordinator.swift` — thin wrapper activating AppKit's native find bar on the text view.
 - `DocumentController.swift` — file I/O (open, save, new). `restore(content:url:)` sets `isModified = true` after the delegate call so restored tabs are immediately saveable without requiring edits.
