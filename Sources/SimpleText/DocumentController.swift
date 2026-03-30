@@ -19,8 +19,16 @@ final class DocumentController {
     func newDocument() {
         currentURL = nil
         isModified = false
-        RecoveryBuffer.clear()
         delegate?.documentDidLoad(url: nil, content: "")
+    }
+
+    /// Restore a tab from the session — sets URL and content without touching disk.
+    func restore(content: String, url: URL?) {
+        currentURL = url
+        isModified = false
+        delegate?.documentDidLoad(url: url, content: content)
+        // documentDidLoad resets isModified to false; re-assert modified after.
+        isModified = true
     }
 
     func openDocument() {
@@ -32,7 +40,6 @@ final class DocumentController {
         guard let w = window ?? NSApp.keyWindow ?? NSApp.mainWindow else { return }
         panel.beginSheetModal(for: w) { [weak self] resp in
             guard resp == .OK, let url = panel.url, let self else { return }
-            RecoveryBuffer.clear()
             self.loadFile(at: url)
         }
     }
@@ -84,18 +91,13 @@ final class DocumentController {
             try content.write(to: url, atomically: true, encoding: .utf8)
             currentURL = url
             isModified = false
-            RecoveryBuffer.clear()
             delegate?.documentDidSave(url: url)
         } catch {
             showError("Could not save file: \(error.localizedDescription)")
         }
     }
 
-    func saveToRecoveryBuffer() {
-        guard let content = delegate?.currentContent() else { return }
-        RecoveryBuffer.save(content)
-    }
-
+    /// Explicit user action: wipe the entire recovery session.
     func clearRecoveryBuffer() {
         RecoveryBuffer.clear()
     }

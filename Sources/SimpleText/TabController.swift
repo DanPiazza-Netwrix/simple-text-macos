@@ -15,7 +15,28 @@ final class TabController: NSViewController {
     init(appearanceManager: AppearanceManager, initialFileURL: URL? = nil) {
         self.appearanceManager = appearanceManager
         super.init(nibName: nil, bundle: nil)
-        appendEditorVC(fileURL: initialFileURL, loadRecoveryBuffer: true)
+
+        if let url = initialFileURL {
+            // Launched with a specific file — open it, skip session restore.
+            appendEditorVC(fileURL: url)
+        } else if let session = RecoveryBuffer.loadSession(), !session.tabs.isEmpty {
+            // Restore all tabs from the previous session.
+            for entry in session.tabs {
+                if let content = entry.content {
+                    appendEditorVC(fileURL: entry.url, restoredContent: content)
+                } else if let url = entry.url,
+                          FileManager.default.fileExists(atPath: url.path) {
+                    appendEditorVC(fileURL: url)
+                } else if entry.url == nil, entry.content == nil {
+                    appendEditorVC()
+                }
+                // else: had a URL but file is gone — skip
+            }
+            if editorVCs.isEmpty { appendEditorVC() }
+            selectedIndex = min(session.selectedIndex, editorVCs.count - 1)
+        } else {
+            appendEditorVC()
+        }
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -78,6 +99,7 @@ final class TabController: NSViewController {
         selectedIndex = min(selectedIndex, editorVCs.count - 1)
         reloadTabBar()
         switchTo(index: selectedIndex)
+        snapshotRecovery()
     }
 
     // MARK: - File opens (called by AppDelegate)
@@ -99,7 +121,7 @@ final class TabController: NSViewController {
     func syncWindow() {
         guard let vc = activeEditorVC, let window = view.window else { return }
         let filename = vc.documentController.currentURL?.lastPathComponent ?? "Untitled"
-        window.title = "\(filename) — v0.0.1.44"
+        window.title = "\(filename) — v0.0.1.48"
         window.representedURL = vc.documentController.currentURL
         window.isDocumentEdited = vc.documentController.isModified
         reloadTabBar()
@@ -107,13 +129,17 @@ final class TabController: NSViewController {
 
     // MARK: - Private helpers
 
-    private func appendEditorVC(fileURL: URL? = nil, loadRecoveryBuffer: Bool = false) {
+    private func appendEditorVC(fileURL: URL? = nil, restoredContent: String? = nil) {
         let vc = EditorViewController(
             appearanceManager: appearanceManager,
             initialFileURL: fileURL,
-            loadRecoveryBuffer: loadRecoveryBuffer
+            restoredContent: restoredContent
         )
-        vc.onStateChanged = { [weak self] in self?.syncWindow() }
+        vc.onStateChanged = { [weak self] in
+            self?.syncWindow()
+            self?.snapshotRecovery()
+        }
+        vc.onTextChanged  = { [weak self] in self?.snapshotRecovery() }
         vc.onFilesDropped = { [weak self] urls in urls.forEach { self?.openFileInTab(at: $0) } }
         editorVCs.append(vc)
         selectedIndex = editorVCs.count - 1
@@ -122,6 +148,19 @@ final class TabController: NSViewController {
             reloadTabBar()
             switchTo(index: selectedIndex)
         }
+    }
+
+    private func snapshotRecovery() {
+        let entries = editorVCs.map { vc -> TabRecoveryEntry in
+            let dc = vc.documentController
+            if let url = dc.currentURL, !dc.isModified {
+                // Saved and clean — just reopen the file on restore.
+                return TabRecoveryEntry(url: url, content: nil)
+            }
+            // Unsaved or modified — persist the content (and URL if known).
+            return TabRecoveryEntry(url: dc.currentURL, content: vc.currentContent())
+        }
+        RecoveryBuffer.saveSession(RecoverySession(tabs: entries, selectedIndex: selectedIndex))
     }
 
     private func switchTo(index: Int) {
@@ -179,6 +218,7 @@ extension TabController: TabBarDelegate {
         }
         reloadTabBar()
         if wasSelected { switchTo(index: selectedIndex) }
+        snapshotRecovery()
     }
 }
 

@@ -6,13 +6,14 @@ A lightweight, native macOS plaintext editor. No rich formatting — just fast, 
 
 ## Features
 
-- **Tabs** — open multiple files at once (Cmd+T new tab, Cmd+W close tab)
+- **Tabs** — open multiple files at once (Cmd+T new tab, Cmd+W close tab); unsaved tabs restored on relaunch
 - **Line numbers** with automatic gutter width
 - **Dark / light mode toggle** (Cmd+Shift+D) — independent of system setting
 - **Remove blank lines** (Edit menu)
+- **Markdown syntax highlighting** — VS Code Dark+/Light+ color scheme, auto-detected by file extension
 - **Native find bar** with Next / Previous / case-sensitive (Cmd+F)
 - **Undo / Redo** (Cmd+Z / Cmd+Shift+Z)
-- **Recovery buffer** — unsaved edits auto-save and persist between app launches
+- **Session recovery** — all open tabs (unsaved or modified) persist between app launches, restoring your exact tab layout and content
 - **Window position & size memory** — remembers your window layout on relaunch
 - **Background mode** — closing the window hides the app instead of quitting
 - Opens files via command-line arguments, Finder (double-click / "Open With…"), drag onto Dock icon, or drag-and-drop directly into the app window
@@ -54,7 +55,7 @@ Built with **Swift + AppKit**, structured for future cross-platform portability:
 | File | Role |
 |------|------|
 | `TextEngine.swift` | Pure Swift text logic — no AppKit, portable to other platforms |
-| `RecoveryBuffer.swift` | Auto-saves unsaved edits to `~/Library/Application Support/SimpleText/` |
+| `RecoveryBuffer.swift` | Auto-saves full session (all tabs) to `~/Library/Application Support/SimpleText/session.json` |
 | `EditorView.swift` | `NSScrollView` + `NSTextView` with `LineNumberRulerView` as a sibling view; intercepts file-URL drags to open in a new tab instead of inserting text |
 | `LineNumberRulerView.swift` | Custom `NSView` line number gutter with dynamic width; sibling to the scroll view |
 | `TabBarView.swift` | Chrome-style tab bar with pill-shaped active tabs and a "+" button |
@@ -64,4 +65,5 @@ Built with **Swift + AppKit**, structured for future cross-platform portability:
 | `EditorViewController.swift` | Central coordinator; owns UI subviews and handles menu actions |
 | `WindowController.swift` | Window lifecycle; hides on close (background mode) |
 | `AppDelegate.swift` | App lifecycle and programmatic menu bar construction |
+| `SyntaxHighlighter.swift` | Markdown syntax highlighting using VS Code–matched colors |
 | `FindBarCoordinator.swift` | Thin wrapper around AppKit's native find bar |
