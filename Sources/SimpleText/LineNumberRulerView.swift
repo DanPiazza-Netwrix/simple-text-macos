@@ -72,13 +72,15 @@ final class LineNumberRulerView: NSView {
         let clipView = scrollView.contentView
         let visibleRect = tv.visibleRect
 
+        // Ensure layout is up-to-date before querying — without this,
+        // AppKit's synchronous draw during live window resize can query
+        // a stale layout and produce wrong/overlapping line numbers.
+        lm.ensureLayout(for: tc)
+
         let glyphRange = lm.glyphRange(forBoundingRect: visibleRect, in: tc)
         guard glyphRange.length > 0 else { return }
 
         var lineNumbersDrawn = Set<Int>()
-        var firstLineY: CGFloat?
-        var firstLineNum: Int?
-        var lineHeight: CGFloat = 0
 
         lm.enumerateLineFragments(forGlyphRange: glyphRange) { [weak self]
             (fragmentRect, _, _, glyphRange, _) in
@@ -98,30 +100,11 @@ final class LineNumberRulerView: NSView {
             let scrollViewY = textViewY + tv.textContainerOrigin.y
             let rulerY = scrollViewY - clipView.bounds.origin.y
 
-            if firstLineY == nil {
-                firstLineY = rulerY
-                firstLineNum = lineNum
-                lineHeight = fragmentRect.height
-            }
-
             let label = "\(lineNum)" as NSString
             let size = label.size(withAttributes: attrs)
 
             if rulerY >= bounds.minY && rulerY <= bounds.maxY {
                 label.draw(at: NSPoint(x: w - size.width - 6, y: rulerY - size.height / 2), withAttributes: attrs)
-            }
-        }
-
-        if let firstLineY = firstLineY, let firstLineNum = firstLineNum, lineHeight > 0 {
-            for lineNum in 1...totalLines {
-                if !lineNumbersDrawn.contains(lineNum) {
-                    let estimatedRulerY = firstLineY + CGFloat(lineNum - firstLineNum) * lineHeight
-                    let label = "\(lineNum)" as NSString
-                    let size = label.size(withAttributes: attrs)
-                    if estimatedRulerY >= bounds.minY && estimatedRulerY <= bounds.maxY {
-                        label.draw(at: NSPoint(x: w - size.width - 6, y: estimatedRulerY - size.height / 2), withAttributes: attrs)
-                    }
-                }
             }
         }
     }
