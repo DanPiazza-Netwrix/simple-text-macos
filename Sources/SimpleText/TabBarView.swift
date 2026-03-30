@@ -227,9 +227,9 @@ final class TabButton: NSView {
         // Close (✕) / modified (●) indicator
         let showDot = isModified && !closeHovered
         let sym     = showDot ? "●" : "✕"
-        let symPt: CGFloat = showDot ? 7 : 9
+        let symPt: CGFloat = 9
         let symCol: NSColor = {
-            if showDot     { return isSelected ? .labelColor : .tertiaryLabelColor }
+            if showDot      { return .systemOrange }
             if closeHovered { return .labelColor }
             // Only show ✕ dimly when selected or hovered; invisible on plain inactive tabs
             return (isSelected || tabHovered) ? .secondaryLabelColor : NSColor.clear

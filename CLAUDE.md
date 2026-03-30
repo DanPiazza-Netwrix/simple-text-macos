@@ -22,7 +22,7 @@ Always build with `./build.sh` when the user asks to test or verify — this pro
 - If unsure about what version to build, ask the user first
 - Version is kept in sync across: `WindowController.swift` (initial window title), `TabController.swift` (runtime window title via `syncWindow()`), `build.sh` (VERSION variable)
 - Always report the built version in output so user can confirm in Claude Code
-- Current version: 0.0.1.39
+- Current version: 0.0.1.40
 
 ## Architecture
 
