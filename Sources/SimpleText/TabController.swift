@@ -99,7 +99,7 @@ final class TabController: NSViewController {
     func syncWindow() {
         guard let vc = activeEditorVC, let window = view.window else { return }
         let filename = vc.documentController.currentURL?.lastPathComponent ?? "Untitled"
-        window.title = "\(filename) — v0.0.1.39"
+        window.title = "\(filename) — v0.0.1.44"
         window.representedURL = vc.documentController.currentURL
         window.isDocumentEdited = vc.documentController.isModified
         reloadTabBar()
@@ -114,6 +114,7 @@ final class TabController: NSViewController {
             loadRecoveryBuffer: loadRecoveryBuffer
         )
         vc.onStateChanged = { [weak self] in self?.syncWindow() }
+        vc.onFilesDropped = { [weak self] urls in urls.forEach { self?.openFileInTab(at: $0) } }
         editorVCs.append(vc)
         selectedIndex = editorVCs.count - 1
 

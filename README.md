@@ -2,6 +2,8 @@
 
 A lightweight, native macOS plaintext editor. No rich formatting — just fast, clean text editing.
 
+![SimpleText screenshot](docs/screenshot.png)
+
 ## Features
 
 - **Tabs** — open multiple files at once (Cmd+T new tab, Cmd+W close tab)
@@ -13,7 +15,7 @@ A lightweight, native macOS plaintext editor. No rich formatting — just fast, 
 - **Recovery buffer** — unsaved edits auto-save and persist between app launches
 - **Window position & size memory** — remembers your window layout on relaunch
 - **Background mode** — closing the window hides the app instead of quitting
-- Opens files passed as command-line arguments or via Finder (double-click, "Open With…", drag onto Dock)
+- Opens files via command-line arguments, Finder (double-click / "Open With…"), drag onto Dock icon, or drag-and-drop directly into the app window
 - Custom app icon
 
 ## Requirements
@@ -53,7 +55,7 @@ Built with **Swift + AppKit**, structured for future cross-platform portability:
 |------|------|
 | `TextEngine.swift` | Pure Swift text logic — no AppKit, portable to other platforms |
 | `RecoveryBuffer.swift` | Auto-saves unsaved edits to `~/Library/Application Support/SimpleText/` |
-| `EditorView.swift` | `NSScrollView` + `NSTextView` with `LineNumberRulerView` as a sibling view |
+| `EditorView.swift` | `NSScrollView` + `NSTextView` with `LineNumberRulerView` as a sibling view; intercepts file-URL drags to open in a new tab instead of inserting text |
 | `LineNumberRulerView.swift` | Custom `NSView` line number gutter with dynamic width; sibling to the scroll view |
 | `TabBarView.swift` | Chrome-style tab bar with pill-shaped active tabs and a "+" button |
 | `TabController.swift` | Manages multiple editor tabs; routes Finder file opens without losing current work |

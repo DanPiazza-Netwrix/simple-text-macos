@@ -14,6 +14,13 @@ final class EditorViewController: NSViewController {
     /// TabController uses this to keep the window and tab label in sync.
     var onStateChanged: (() -> Void)?
 
+    private var syntaxHighlighter: SyntaxHighlighter?
+
+    /// Called when files are dropped onto the editor. TabController opens each URL in a new tab.
+    var onFilesDropped: (([URL]) -> Void)? {
+        didSet { editorView.onFilesDropped = onFilesDropped }
+    }
+
     private var textView: NSTextView { editorView.textView }
 
     // MARK: - Init
@@ -140,11 +147,24 @@ extension EditorViewController: NSMenuItemValidation {
 extension EditorViewController: DocumentControllerDelegate {
 
     func documentDidLoad(url: URL?, content: String) {
+        // Tear down any existing highlighter before changing the text.
+        syntaxHighlighter = nil
+        textView.textStorage?.delegate = nil
+
         textView.string = content
         textView.undoManager?.removeAllActions()
         documentController.isModified = false
         editorView.rulerView.needsDisplay = true
         updateWindowState()
+
+        // Wire up syntax highlighting for Markdown files.
+        let ext = url?.pathExtension.lowercased()
+        if ext == "md" || ext == "markdown" {
+            let hl = SyntaxHighlighter(textView: textView)
+            textView.textStorage?.delegate = hl
+            hl.highlightAll()
+            syntaxHighlighter = hl
+        }
     }
 
     func documentDidSave(url: URL) {
