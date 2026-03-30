@@ -3,6 +3,7 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var windowController: WindowController?
+    private var pendingFileURL: URL?
 
     // MARK: - Lifecycle
 
@@ -11,20 +12,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        windowController = WindowController()
+        // Prefer a Finder-opened file over CLI args; CLI args over recovery buffer
+        let initialURL: URL? = pendingFileURL
+            ?? CommandLine.arguments.dropFirst()
+                .first(where: { FileManager.default.fileExists(atPath: $0) })
+                .map { URL(fileURLWithPath: $0) }
+        pendingFileURL = nil
+
+        windowController = WindowController(initialFileURL: initialURL)
         windowController?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
-
-        // Open any file paths passed as CLI arguments
-        let paths = CommandLine.arguments.dropFirst()
-            .filter { FileManager.default.fileExists(atPath: $0) }
-        if let first = paths.first {
-            windowController?.editorVC.documentController.openFile(at: URL(fileURLWithPath: first))
-        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    // Called by macOS before applicationDidFinishLaunching when the app is
+    // launched by opening a file (double-click, "Open With…", Dock drop).
+    // Also called when the app is already running and a file is opened.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard let url = urls.first else { return }
+        if let wc = windowController {
+            // App already running — open in a tab
+            wc.window?.orderFrontRegardless()
+            wc.tabController.openFileInTab(at: url)
+        } else {
+            // App just launched — store for applicationDidFinishLaunching
+            pendingFileURL = url
+        }
     }
 
     // MARK: - Menu construction
@@ -51,15 +67,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(fileItem)
         let fileMenu = NSMenu(title: "File")
         fileItem.submenu = fileMenu
-        fileMenu.addItem(item("New",       action: #selector(EditorViewController.newDocument(_:)),    key: "n"))
-        fileMenu.addItem(item("Open…",     action: #selector(EditorViewController.openDocument(_:)),   key: "o"))
+        fileMenu.addItem(item("New Tab",   action: #selector(TabController.newTab(_:)),              key: "t"))
+        fileMenu.addItem(item("New",       action: #selector(EditorViewController.newDocument(_:)),   key: "n"))
+        fileMenu.addItem(item("Open…",     action: #selector(EditorViewController.openDocument(_:)),  key: "o"))
         fileMenu.addItem(.separator())
-        fileMenu.addItem(item("Save",      action: #selector(EditorViewController.saveDocument(_:)),   key: "s"))
+        fileMenu.addItem(item("Save",      action: #selector(EditorViewController.saveDocument(_:)),  key: "s"))
         let saveAs = item("Save As…", action: #selector(EditorViewController.saveDocumentAs(_:)), key: "s")
         saveAs.keyEquivalentModifierMask = [.command, .shift]
         fileMenu.addItem(saveAs)
         fileMenu.addItem(.separator())
-        fileMenu.addItem(item("Close",     action: #selector(NSWindow.performClose(_:)),               key: "w"))
+        fileMenu.addItem(item("Close Tab", action: #selector(TabController.closeTab(_:)),             key: "w"))
 
         // ── Edit menu ─────────────────────────────────────────────────────
         let editItem = NSMenuItem()

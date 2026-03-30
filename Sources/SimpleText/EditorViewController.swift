@@ -5,15 +5,23 @@ final class EditorViewController: NSViewController {
     // Sub-components
     let editorView          = EditorView(frame: .zero)
     let documentController  = DocumentController()
-    let appearanceManager: AppearanceManager   // set by WindowController after init
+    let appearanceManager: AppearanceManager
+    private let initialFileURL: URL?
+    private let shouldLoadRecoveryBuffer: Bool
     private var findCoordinator: FindBarCoordinator!
+
+    /// Called whenever document state changes (title, modified flag, URL).
+    /// TabController uses this to keep the window and tab label in sync.
+    var onStateChanged: (() -> Void)?
 
     private var textView: NSTextView { editorView.textView }
 
     // MARK: - Init
 
-    init(appearanceManager: AppearanceManager) {
+    init(appearanceManager: AppearanceManager, initialFileURL: URL? = nil, loadRecoveryBuffer: Bool = false) {
         self.appearanceManager = appearanceManager
+        self.initialFileURL = initialFileURL
+        self.shouldLoadRecoveryBuffer = loadRecoveryBuffer
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -31,8 +39,10 @@ final class EditorViewController: NSViewController {
         documentController.delegate = self
         findCoordinator = FindBarCoordinator(textView: textView)
 
-        // Load recovery buffer if it exists
-        if let recovered = RecoveryBuffer.load(), !recovered.isEmpty {
+        // Load initial file if launched by Finder/CLI; otherwise restore recovery buffer
+        if let url = initialFileURL {
+            documentController.openFile(at: url)
+        } else if shouldLoadRecoveryBuffer, let recovered = RecoveryBuffer.load(), !recovered.isEmpty {
             textView.string = recovered
             documentController.isModified = true
             updateWindowState()
@@ -75,11 +85,7 @@ final class EditorViewController: NSViewController {
     // MARK: - Window state
 
     private func updateWindowState() {
-        guard let window = view.window else { return }
-        window.isDocumentEdited   = documentController.isModified
-        window.representedURL      = documentController.currentURL
-        let filename = documentController.currentURL?.lastPathComponent ?? "Untitled"
-        window.title               = "\(filename) — v0.0.1.22"
+        onStateChanged?()
     }
 
     // MARK: - Menu actions (via responder chain, target: nil in menu setup)

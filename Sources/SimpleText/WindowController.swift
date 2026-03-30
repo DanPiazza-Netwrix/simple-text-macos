@@ -3,28 +3,24 @@ import AppKit
 final class WindowController: NSWindowController, NSWindowDelegate {
 
     private(set) var appearanceManager: AppearanceManager!
-    private(set) var editorVC: EditorViewController!
+    private(set) var tabController: TabController!
 
-    convenience init() {
+    convenience init(initialFileURL: URL? = nil) {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 800, height: 500),
             styleMask:   [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing:     .buffered,
             defer:       false
         )
-        window.title                        = "Untitled — v0.0.1.22"
-        window.minSize                      = NSSize(width: 480, height: 300)
+        window.title    = "Untitled — v0.0.1.39"
+        window.minSize  = NSSize(width: 480, height: 300)
 
         self.init(window: window)
         window.delegate = self
 
         appearanceManager = AppearanceManager(window: window)
-
-        editorVC = EditorViewController(appearanceManager: appearanceManager)
-        window.contentViewController = editorVC
-
-        // Wire DocumentController's window reference
-        editorVC.documentController.window = window
+        tabController = TabController(appearanceManager: appearanceManager, initialFileURL: initialFileURL)
+        window.contentViewController = tabController
 
         // Restore frame AFTER contentViewController is set (setting it resizes the window)
         window.setFrameAutosaveName("SimpleTextMain")
