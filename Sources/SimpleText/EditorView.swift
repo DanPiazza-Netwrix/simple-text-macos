@@ -4,7 +4,7 @@ final class EditorView: NSView {
 
     let scrollView  = NSScrollView()
     let textView    = NSTextView()
-    let rulerView   = LineNumberRulerView(scrollView: nil, orientation: .verticalRuler)
+    let rulerView   = LineNumberRulerView()
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -18,16 +18,24 @@ final class EditorView: NSView {
     private func setup() {
         setupTextView()
         setupScrollView()
-        setupRuler()
 
+        // Ruler is a plain sibling view — no NSScrollView ruler machinery,
+        // so no built-in separator or divider lines are drawn.
+        addSubview(rulerView)
         addSubview(scrollView)
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            rulerView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            rulerView.topAnchor.constraint(equalTo: topAnchor),
+            rulerView.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            scrollView.leadingAnchor.constraint(equalTo: rulerView.trailingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
+
+        rulerView.textView = textView
     }
 
     private func setupTextView() {
@@ -48,7 +56,7 @@ final class EditorView: NSView {
         textView.isHorizontallyResizable             = false
         textView.usesFindBar                         = true
         textView.isIncrementalSearchingEnabled       = true
-        textView.textContainerInset                  = NSSize(width: 4, height: 6)
+        textView.textContainerInset                  = NSSize(width: 4, height: 0)
 
         textView.backgroundColor     = .textBackgroundColor
         textView.textColor           = .labelColor
@@ -66,15 +74,5 @@ final class EditorView: NSView {
         scrollView.borderType             = .noBorder
         scrollView.backgroundColor        = .textBackgroundColor
         scrollView.documentView           = textView
-    }
-
-    private func setupRuler() {
-        // NSRulerView requires the scroll view to be the owner
-        scrollView.verticalRulerView = rulerView
-        scrollView.hasVerticalRuler  = true
-        scrollView.rulersVisible     = true
-
-        rulerView.scrollView = scrollView
-        rulerView.textView   = textView
     }
 }
