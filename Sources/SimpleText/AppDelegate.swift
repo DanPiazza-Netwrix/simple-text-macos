@@ -28,6 +28,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         false
     }
 
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        if !hasVisibleWindows {
+            windowController?.showWindow(nil)
+        }
+        return true
+    }
+
     // Called by macOS before applicationDidFinishLaunching when the app is
     // launched by opening a file (double-click, "Open With…", Dock drop).
     // Also called when the app is already running and a file is opened.

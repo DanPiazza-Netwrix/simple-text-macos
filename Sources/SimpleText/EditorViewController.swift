@@ -7,12 +7,15 @@ final class EditorViewController: NSViewController {
     let documentController  = DocumentController()
     let appearanceManager: AppearanceManager
     private let initialFileURL: URL?
+    private let restoredContent: String?
     private let shouldLoadRecoveryBuffer: Bool
     private var findCoordinator: FindBarCoordinator!
 
     /// Called whenever document state changes (title, modified flag, URL).
     /// TabController uses this to keep the window and tab label in sync.
     var onStateChanged: (() -> Void)?
+    /// Fired on every keystroke — TabController uses this to snapshot all tabs.
+    var onTextChanged: (() -> Void)?
 
     private var syntaxHighlighter: SyntaxHighlighter?
 
@@ -25,9 +28,13 @@ final class EditorViewController: NSViewController {
 
     // MARK: - Init
 
-    init(appearanceManager: AppearanceManager, initialFileURL: URL? = nil, loadRecoveryBuffer: Bool = false) {
+    init(appearanceManager: AppearanceManager,
+         initialFileURL: URL? = nil,
+         restoredContent: String? = nil,
+         loadRecoveryBuffer: Bool = false) {
         self.appearanceManager = appearanceManager
         self.initialFileURL = initialFileURL
+        self.restoredContent = restoredContent
         self.shouldLoadRecoveryBuffer = loadRecoveryBuffer
         super.init(nibName: nil, bundle: nil)
     }
@@ -46,13 +53,12 @@ final class EditorViewController: NSViewController {
         documentController.delegate = self
         findCoordinator = FindBarCoordinator(textView: textView)
 
-        // Load initial file if launched by Finder/CLI; otherwise restore recovery buffer
-        if let url = initialFileURL {
+        // Priority: restoredContent > initialFileURL > (legacy single-tab recovery is now
+        // handled by TabController, so shouldLoadRecoveryBuffer is vestigial)
+        if let content = restoredContent {
+            documentController.restore(content: content, url: initialFileURL)
+        } else if let url = initialFileURL {
             documentController.openFile(at: url)
-        } else if shouldLoadRecoveryBuffer, let recovered = RecoveryBuffer.load(), !recovered.isEmpty {
-            textView.string = recovered
-            documentController.isModified = true
-            updateWindowState()
         }
 
         // Observe text changes
@@ -79,8 +85,7 @@ final class EditorViewController: NSViewController {
             documentController.isModified = true
             updateWindowState()
         }
-        // Auto-save to recovery buffer
-        documentController.saveToRecoveryBuffer()
+        onTextChanged?()
         editorView.rulerView.needsDisplay = true
     }
 

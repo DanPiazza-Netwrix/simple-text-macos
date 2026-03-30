@@ -24,7 +24,7 @@ Always build with `./build.sh` when the user asks to test or verify — this pro
 - If unsure about what version to build, ask the user first
 - Version is kept in sync across: `WindowController.swift` (initial window title), `TabController.swift` (runtime window title via `syncWindow()`), `build.sh` (VERSION variable)
 - Always report the built version in output so user can confirm in Claude Code
-- Current version: 0.0.1.44
+- Current version: 0.0.1.48
 
 ## Architecture
 
@@ -33,15 +33,17 @@ Swift + AppKit, Swift Package Manager. macOS 13+. No Xcode project file.
 ### Key files
 
 - `TextEngine.swift` — **no AppKit import**. Pure Swift/Foundation logic. Keep it that way — it's the portability seam for future Windows/Linux builds.
-- `RecoveryBuffer.swift` — manages `~/Library/Application Support/SimpleText/unsaved_buffer.txt`. Saves on every keystroke, loads on app startup, clears on file save or new document.
+- `RecoveryBuffer.swift` — manages `~/Library/Application Support/SimpleText/session.json`. Saves a full multi-tab session (all tab content + selected index) on every keystroke and state change, loads on app startup, clears when user triggers "Clear Unsaved Buffer". Legacy single-tab `unsaved_buffer.txt` is migrated automatically on first run.
 - `AppearanceManager.swift` — sets `window.appearance` to force dark/light. All colors elsewhere must be semantic `NSColor` values so they auto-adapt.
 - `LineNumberRulerView.swift` — Plain `NSView` subclass (NOT `NSRulerView`). Positioned as a sibling to the scroll view inside `EditorView`, avoiding all `NSScrollView` ruler machinery (separator lines, dividers). `isFlipped = true` so coordinate math works the same as scroll view content. Uses `NSLayoutManager.enumerateLineFragments` to position numbers. Coordinate math: `rulerY = fragmentRect.midY + textContainerOrigin.y - clipView.bounds.origin.y`. Width is managed via an `NSLayoutConstraint` that is updated dynamically as line count grows.
 - `TabController.swift` — `NSViewController` managing multiple `EditorViewController` instances. Owns a `TabBarView` at top (anchored to `safeAreaLayoutGuide.topAnchor`) and an `editorContainer` below it. Handles tab switching, closing, and opening files without losing the current tab. Wires `onFilesDropped` on each `EditorViewController` so file-URL drops anywhere in the window open a new tab via `openFileInTab(at:)`.
 - `TabBarView.swift` — Custom `NSView` tab bar. Chrome-style tab sizing (fills available width, clamped to min/max). Active tabs get a rounded-rect pill background; inactive tabs are transparent. Contains `TabButton` and `AddTabButton` inner classes.
+- `SyntaxHighlighter.swift` — `NSTextStorageDelegate` implementation for Markdown syntax highlighting. Uses VS Code Dark+/Light+ dynamic colors via `NSColor(name:dynamicProvider:)`. Pre-compiled static regex patterns. Activated only for `.md`/`.markdown` files. Guard on `.editedCharacters` prevents infinite attribute-change loops. Wired in `EditorViewController.documentDidLoad`.
 - `FindBarCoordinator.swift` — thin wrapper activating AppKit's native find bar on the text view.
-- `DocumentController.swift` — file I/O (open, save, new). Integrates with recovery buffer instead of prompting for unsaved changes.
+- `DocumentController.swift` — file I/O (open, save, new). `restore(content:url:)` sets `isModified = true` after the delegate call so restored tabs are immediately saveable without requiring edits.
 - `EditorViewController.swift` — central coordinator; owns `DocumentController`, `AppearanceManager`, `EditorView`. Loads recovery buffer on `viewDidLoad`. All `@objc` menu actions wired via responder chain (`target: nil` in `AppDelegate.buildMainMenu`). Exposes `onFilesDropped: (([URL]) -> Void)?` callback forwarded from `EditorView` up to `TabController`.
 - `WindowController.swift` — window creation, appearance override, background mode, and frame autosaving. Closes window but keeps app running (`windowShouldClose` returns false, calls `orderOut`). Saves and restores window position/size via `setFrameAutosaveName`.
+- `AppDelegate.swift` — app lifecycle and programmatic menu construction. `applicationShouldHandleReopen(_:hasVisibleWindows:)` re-shows the window when the Dock icon is clicked while all windows are hidden.
 
 ## Color rules
 
@@ -80,11 +82,17 @@ Add items in `AppDelegate.buildMainMenu()`. Use `target: nil` so AppKit dispatch
 
 ## Recovery buffer behavior
 
-- Auto-saves to `~/Library/Application Support/SimpleText/unsaved_buffer.txt` after every keystroke
-- Persists between app launches (no save prompt on quit)
-- Cleared when: user saves a file, creates new document, or opens a file
+- Session is saved as JSON to `~/Library/Application Support/SimpleText/session.json`
+- Captures **all open tabs**: each tab's URL (if saved) and/or content (if unsaved or modified)
+- Saves after every keystroke, state change, and tab close/open
+- Persists between app launches — no save prompt on quit
+- On launch, all tabs are restored with the same selected tab as when the app was last used
+- Saved+unmodified tabs are restored by reopening their file from disk (content not duplicated in JSON)
+- Tabs whose file no longer exists on disk are silently skipped on restore (not shown as errors)
+- Unsaved or modified tabs have their full text content stored in the session; restored as modified so Cmd+S works immediately without requiring edits
+- If all session tabs are skipped, a single blank tab is opened as a fallback
 - User can manually clear via Edit → "Clear Unsaved Buffer"
-- On app launch, if buffer exists and is non-empty, it's automatically loaded
+- Legacy single-tab `unsaved_buffer.txt` is auto-migrated to the new format on first run
 
 ## Background mode
 
