@@ -1,10 +1,49 @@
 import AppKit
 
+// NSTextView intercepts file-URL drags and inserts the path as text by default.
+// This subclass redirects file drops to the onFilesDropped handler instead.
+private final class EditorTextView: NSTextView {
+    var onFilesDropped: (([URL]) -> Void)?
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        if hasFileURLs(sender) { return .copy }
+        return super.draggingEntered(sender)
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        if hasFileURLs(sender) { return .copy }
+        return super.draggingUpdated(sender)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let urls = fileURLs(from: sender)
+        if !urls.isEmpty {
+            onFilesDropped?(urls)
+            return true
+        }
+        return super.performDragOperation(sender)
+    }
+
+    private func hasFileURLs(_ sender: NSDraggingInfo) -> Bool {
+        sender.draggingPasteboard.canReadObject(forClasses: [NSURL.self],
+                                                options: [.urlReadingFileURLsOnly: true])
+    }
+
+    private func fileURLs(from sender: NSDraggingInfo) -> [URL] {
+        (sender.draggingPasteboard.readObjects(forClasses: [NSURL.self],
+         options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
+    }
+}
+
 final class EditorView: NSView {
 
-    let scrollView  = NSScrollView()
-    let textView    = NSTextView()
+    let scrollView: NSScrollView = NSScrollView()
+    let textView:   NSTextView   = EditorTextView()
     let rulerView   = LineNumberRulerView()
+
+    var onFilesDropped: (([URL]) -> Void)? {
+        didSet { (textView as? EditorTextView)?.onFilesDropped = onFilesDropped }
+    }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
