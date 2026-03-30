@@ -5,6 +5,8 @@ import AppKit
 protocol TabBarDelegate: AnyObject {
     func tabBar(_ bar: TabBarView, didSelectTabAt index: Int)
     func tabBar(_ bar: TabBarView, didCloseTabAt index: Int)
+    func tabBar(_ bar: TabBarView, didCloseTabsToRightOf index: Int)
+    func tabBar(_ bar: TabBarView, didCloseOtherTabsThan index: Int)
     func tabBarDidClickNewTab(_ bar: TabBarView)
 }
 
@@ -40,8 +42,16 @@ final class TabBarView: NSView {
         for i in 0 ..< titles.count {
             let btn = TabButton(title: titles[i], isModified: modified[i], isSelected: i == selectedIndex)
             let idx = i
-            btn.onSelect = { [weak self] in guard let s = self else { return }; s.delegate?.tabBar(s, didSelectTabAt: idx) }
-            btn.onClose  = { [weak self] in guard let s = self else { return }; s.delegate?.tabBar(s, didCloseTabAt: idx) }
+            btn.onSelect       = { [weak self] in guard let s = self else { return }; s.delegate?.tabBar(s, didSelectTabAt: idx) }
+            btn.onClose        = { [weak self] in guard let s = self else { return }; s.delegate?.tabBar(s, didCloseTabAt: idx) }
+            // Only offer "close other tabs" when there are other tabs
+            if titles.count > 1 {
+                btn.onCloseOthers = { [weak self] in guard let s = self else { return }; s.delegate?.tabBar(s, didCloseOtherTabsThan: idx) }
+            }
+            // Only offer "close to right" when there are tabs to the right
+            if i < titles.count - 1 {
+                btn.onCloseToRight = { [weak self] in guard let s = self else { return }; s.delegate?.tabBar(s, didCloseTabsToRightOf: idx) }
+            }
             addSubview(btn)
             buttons.append(btn)
         }
@@ -102,8 +112,10 @@ final class TabBarView: NSView {
 
 final class TabButton: NSView {
 
-    var onSelect: (() -> Void)?
-    var onClose:  (() -> Void)?
+    var onSelect:       (() -> Void)?
+    var onClose:        (() -> Void)?
+    var onCloseToRight: (() -> Void)?
+    var onCloseOthers:  (() -> Void)?
 
     private let label: NSTextField
     private var isSelected:   Bool
@@ -197,6 +209,28 @@ final class TabButton: NSView {
         let pt = convert(event.locationInWindow, from: nil)
         if closeRect.contains(pt) { onClose?() } else { onSelect?() }
     }
+
+    // MARK: - Context menu
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        let rightItem = menu.addItem(withTitle: "Close Tabs to the Right",
+                                     action: #selector(handleCloseToRight),
+                                     keyEquivalent: "")
+        rightItem.target = self
+        rightItem.isEnabled = onCloseToRight != nil
+
+        let othersItem = menu.addItem(withTitle: "Close Other Tabs",
+                                      action: #selector(handleCloseOthers),
+                                      keyEquivalent: "")
+        othersItem.target = self
+        othersItem.isEnabled = onCloseOthers != nil
+        return menu
+    }
+
+    @objc private func handleCloseToRight() { onCloseToRight?() }
+    @objc private func handleCloseOthers()  { onCloseOthers?() }
 
     // MARK: - Drawing
 
