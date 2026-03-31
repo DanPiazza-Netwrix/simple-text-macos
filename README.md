@@ -12,7 +12,7 @@ A lightweight, native macOS plaintext editor. No rich formatting — just fast, 
 - **Remove blank lines** (Edit menu)
 - **Markdown syntax highlighting** — VS Code Dark+/Light+ color scheme, auto-detected by file extension
 - **Native find bar** with Next / Previous / case-sensitive (Cmd+F)
-- **Undo / Redo** (Cmd+Z / Cmd+Shift+Z)
+- **Undo / Redo** (Cmd+Z / Cmd+Shift+Z) — word-boundary granularity (one undo step per word), isolated per tab
 - **Session recovery** — all open tabs (unsaved or modified) persist between app launches, restoring your exact tab layout and content
 - **Window position & size memory** — remembers your window layout on relaunch
 - **Background mode** — closing the window hides the app instead of quitting
@@ -65,5 +65,5 @@ Built with **Swift + AppKit**, structured for future cross-platform portability:
 | `EditorViewController.swift` | Central coordinator; owns UI subviews and handles menu actions |
 | `WindowController.swift` | Window lifecycle; hides on close (background mode) |
 | `AppDelegate.swift` | App lifecycle and programmatic menu bar construction |
-| `SyntaxHighlighter.swift` | Markdown syntax highlighting using VS Code–matched colors |
+| `SyntaxHighlighter.swift` | Markdown syntax highlighting using VS Code–matched colors; uses `NSLayoutManager` temporary attributes (not undo-tracked) |
 | `FindBarCoordinator.swift` | Thin wrapper around AppKit's native find bar |

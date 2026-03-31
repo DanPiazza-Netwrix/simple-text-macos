@@ -18,6 +18,7 @@ final class EditorViewController: NSViewController {
     var onTextChanged: (() -> Void)?
 
     private var syntaxHighlighter: SyntaxHighlighter?
+    let tabUndoManager = UndoManager()
 
     /// Called when files are dropped onto the editor. TabController opens each URL in a new tab.
     var onFilesDropped: (([URL]) -> Void)? {
@@ -52,6 +53,7 @@ final class EditorViewController: NSViewController {
 
         documentController.delegate = self
         findCoordinator = FindBarCoordinator(textView: textView)
+        textView.delegate = self
 
         // Priority: restoredContent > initialFileURL > (legacy single-tab recovery is now
         // handled by TabController, so shouldLoadRecoveryBuffer is vestigial)
@@ -64,7 +66,7 @@ final class EditorViewController: NSViewController {
         // Observe text changes
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(textDidChange(_:)),
+            selector: #selector(handleTextDidChange(_:)),
             name: NSText.didChangeNotification,
             object: textView
         )
@@ -80,7 +82,7 @@ final class EditorViewController: NSViewController {
 
     // MARK: - Notifications
 
-    @objc private func textDidChange(_ notification: Notification) {
+    @objc private func handleTextDidChange(_ notification: Notification) {
         if !documentController.isModified {
             documentController.isModified = true
             updateWindowState()
@@ -147,6 +149,22 @@ extension EditorViewController: NSMenuItemValidation {
     }
 }
 
+// MARK: - NSTextViewDelegate
+
+extension EditorViewController: NSTextViewDelegate {
+    func textView(_ textView: NSTextView,
+                  shouldChangeTextIn range: NSRange,
+                  replacementString string: String?) -> Bool {
+        if let s = string,
+           s.unicodeScalars.contains(where: {
+               CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters).contains($0)
+           }) {
+            textView.breakUndoCoalescing()
+        }
+        return true
+    }
+}
+
 // MARK: - DocumentControllerDelegate
 
 extension EditorViewController: DocumentControllerDelegate {
@@ -157,7 +175,7 @@ extension EditorViewController: DocumentControllerDelegate {
         textView.textStorage?.delegate = nil
 
         textView.string = content
-        textView.undoManager?.removeAllActions()
+        tabUndoManager.removeAllActions()
         documentController.isModified = false
         editorView.rulerView.needsDisplay = true
         updateWindowState()

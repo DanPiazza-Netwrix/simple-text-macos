@@ -2,7 +2,7 @@ import AppKit
 
 // NSTextView intercepts file-URL drags and inserts the path as text by default.
 // This subclass redirects file drops to the onFilesDropped handler instead.
-private final class EditorTextView: NSTextView {
+final class EditorTextView: NSTextView {
     var onFilesDropped: (([URL]) -> Void)?
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
