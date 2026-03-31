@@ -24,6 +24,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let unsaved = (windowController?.tabController.editorVCs ?? [])
+            .filter { $0.documentController.currentURL != nil && $0.documentController.isModified }
+        guard !unsaved.isEmpty else { return .terminateNow }
+
+        let names = unsaved.compactMap { $0.documentController.currentURL?.lastPathComponent }
+        let alert = NSAlert()
+        alert.messageText = names.count == 1
+            ? "Save \"\(names[0])\" before quitting?"
+            : "You have \(names.count) files with unsaved changes."
+        alert.informativeText = "Your changes will be lost if you quit without saving."
+        alert.addButton(withTitle: "Save All")
+        alert.addButton(withTitle: "Don't Save")
+        alert.addButton(withTitle: "Cancel")
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:   // Save All
+            unsaved.forEach { $0.documentController.saveDocument() }
+            return .terminateNow
+        case .alertSecondButtonReturn:  // Don't Save
+            return .terminateNow
+        default:                        // Cancel
+            return .terminateCancel
+        }
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
     }

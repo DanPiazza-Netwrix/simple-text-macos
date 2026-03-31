@@ -6,7 +6,7 @@ A lightweight, native macOS plaintext editor. No rich formatting — just fast, 
 
 ## Features
 
-- **Tabs** — Cmd+T new tab, Cmd+W close tab; right-click a tab for "Close Tabs to the Right" / "Close Other Tabs"; unsaved tabs restored on relaunch
+- **Tabs** — Cmd+T new tab, Cmd+W close tab; right-click a tab for "Close Tabs to the Right" / "Close Other Tabs"; unsaved tabs restored on relaunch; save prompt on close for modified named files
 - **Line numbers** with automatic gutter width
 - **Dark / light mode toggle** (Cmd+Shift+D) — independent of system setting
 - **Remove blank lines** (Edit menu)
@@ -59,7 +59,7 @@ Built with **Swift + AppKit**, structured for future cross-platform portability:
 | `EditorView.swift` | `NSScrollView` + `NSTextView` with `LineNumberRulerView` as a sibling view; intercepts file-URL drags to open in a new tab instead of inserting text |
 | `LineNumberRulerView.swift` | Custom `NSView` line number gutter with dynamic width; sibling to the scroll view |
 | `TabBarView.swift` | Chrome-style tab bar with pill-shaped active tabs and a "+" button |
-| `TabController.swift` | Manages multiple editor tabs; routes Finder file opens without losing current work |
+| `TabController.swift` | Manages multiple editor tabs; routes Finder file opens without losing current work; prompts to save modified named files on close |
 | `DocumentController.swift` | File I/O (open, save, new) and recovery buffer integration |
 | `AppearanceManager.swift` | Dark / light mode toggle via `window.appearance` override |
 | `EditorViewController.swift` | Central coordinator; owns UI subviews and handles menu actions |
