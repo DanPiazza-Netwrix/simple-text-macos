@@ -52,7 +52,7 @@ final class DocumentController {
         write(to: url)
     }
 
-    func saveDocumentAs() {
+    func saveDocumentAs(completion: (() -> Void)? = nil) {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.plainText]
         panel.nameFieldStringValue = currentURL?.lastPathComponent ?? "Untitled.txt"
@@ -61,6 +61,7 @@ final class DocumentController {
             guard resp == .OK, let url = panel.url, let self else { return }
             self.currentURL = url
             self.write(to: url)
+            completion?()
         }
     }
 

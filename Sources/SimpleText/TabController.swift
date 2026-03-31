@@ -129,7 +129,7 @@ final class TabController: NSViewController {
     func syncWindow() {
         guard let vc = activeEditorVC, let window = view.window else { return }
         let filename = vc.documentController.currentURL?.lastPathComponent ?? "Untitled"
-        window.title = "\(filename) — v0.0.1.69"
+        window.title = "\(filename) — v0.0.1.70"
         window.representedURL = vc.documentController.currentURL
         window.isDocumentEdited = vc.documentController.isModified
         reloadTabBar()
@@ -158,30 +158,52 @@ final class TabController: NSViewController {
         }
     }
 
-    /// Shows a Save/Don't Save/Cancel sheet when closing a named file with unsaved changes.
-    /// Calls `closeAction` immediately if no prompt is needed (untitled buffers, or clean files).
+    /// Shows a Save/Don't Save/Cancel sheet when closing a tab with unsaved content.
+    /// - Named file with unsaved changes: prompts with the filename.
+    /// - Untitled buffer with content: prompts generically; Save shows a Save panel and
+    ///   only closes the tab after the file is written.
+    /// - Clean or empty tabs: closes immediately with no prompt.
     private func confirmAndClose(vc: EditorViewController, closeAction: @escaping () -> Void) {
-        guard let url = vc.documentController.currentURL,
-              vc.documentController.isModified,
-              let window = view.window else {
-            closeAction()
-            return
-        }
-        let alert = NSAlert()
-        alert.messageText = "Save \"\(url.lastPathComponent)\" before closing?"
-        alert.informativeText = "Your changes will be lost if you don't save."
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Don't Save")
-        alert.addButton(withTitle: "Cancel")
-        alert.beginSheetModal(for: window) { response in
-            switch response {
-            case .alertFirstButtonReturn:   // Save
-                vc.documentController.saveDocument()
-                closeAction()
-            case .alertSecondButtonReturn:  // Don't Save
-                closeAction()
-            default: break                  // Cancel — abort close
+        guard let window = view.window else { closeAction(); return }
+        let dc = vc.documentController
+
+        if let url = dc.currentURL, dc.isModified {
+            // Named file with unsaved changes
+            let alert = NSAlert()
+            alert.messageText = "Save \"\(url.lastPathComponent)\" before closing?"
+            alert.informativeText = "Your changes will be lost if you don't save."
+            alert.addButton(withTitle: "Save")
+            alert.addButton(withTitle: "Don't Save")
+            alert.addButton(withTitle: "Cancel")
+            alert.beginSheetModal(for: window) { response in
+                switch response {
+                case .alertFirstButtonReturn:   // Save
+                    dc.saveDocument()
+                    closeAction()
+                case .alertSecondButtonReturn:  // Don't Save
+                    closeAction()
+                default: break
+                }
             }
+        } else if dc.currentURL == nil && dc.isModified && !vc.currentContent().isEmpty {
+            // Untitled buffer with content
+            let alert = NSAlert()
+            alert.messageText = "Save changes to this untitled document?"
+            alert.informativeText = "Your changes will be lost if you don't save."
+            alert.addButton(withTitle: "Save")
+            alert.addButton(withTitle: "Don't Save")
+            alert.addButton(withTitle: "Cancel")
+            alert.beginSheetModal(for: window) { response in
+                switch response {
+                case .alertFirstButtonReturn:   // Save — show Save panel; close after write
+                    dc.saveDocumentAs(completion: closeAction)
+                case .alertSecondButtonReturn:  // Don't Save
+                    closeAction()
+                default: break
+                }
+            }
+        } else {
+            closeAction()
         }
     }
 
