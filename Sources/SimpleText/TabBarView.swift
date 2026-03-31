@@ -182,12 +182,6 @@ final class TabButton: NSView {
     private static let closeRight: CGFloat = 7
     private static let fontSize:   CGFloat = 11.5
 
-    var preferredWidth: CGFloat {
-        let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: Self.fontSize)]
-        let tw = (label.stringValue as NSString).size(withAttributes: attrs).width
-        return max(80, min(220, (Self.hPad + tw + 4 + Self.closeSize + Self.closeRight + Self.hInset * 2).rounded(.up)))
-    }
-
     private var closeRect: NSRect {
         NSRect(
             x: bounds.maxX - Self.closeSize - Self.closeRight - Self.hInset,

@@ -58,8 +58,8 @@ Built with **Swift + AppKit**, structured for future cross-platform portability:
 | `RecoveryBuffer.swift` | Auto-saves full session (all tabs) to `~/Library/Application Support/SimpleText/session.json` |
 | `EditorView.swift` | `NSScrollView` + `NSTextView` with `LineNumberRulerView` as a sibling view; intercepts file-URL drags to open in a new tab instead of inserting text |
 | `LineNumberRulerView.swift` | Custom `NSView` line number gutter with dynamic width; sibling to the scroll view |
-| `TabBarView.swift` | Chrome-style tab bar with pill-shaped active tabs and a "+" button |
-| `TabController.swift` | Manages multiple editor tabs; routes Finder file opens without losing current work; prompts to save modified named files on close |
+| `TabBarView.swift` | Chrome-style tab bar with pill-shaped active tabs; drag-to-reorder with animation; right-click context menu |
+| `TabController.swift` | Manages multiple editor tabs; routes Finder file opens without losing current work; prompts to save on close (named files and untitled buffers with content); bulk close ("Close Tabs to the Right" / "Close Other Tabs") processes tabs one at a time |
 | `DocumentController.swift` | File I/O (open, save, new) and recovery buffer integration |
 | `AppearanceManager.swift` | Dark / light mode toggle via `window.appearance` override |
 | `EditorViewController.swift` | Central coordinator; owns UI subviews and handles menu actions |
