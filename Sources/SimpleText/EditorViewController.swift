@@ -8,8 +8,6 @@ final class EditorViewController: NSViewController {
     let appearanceManager: AppearanceManager
     private let initialFileURL: URL?
     private let restoredContent: String?
-    private let shouldLoadRecoveryBuffer: Bool
-    private var findCoordinator: FindBarCoordinator!
 
     /// Called whenever document state changes (title, modified flag, URL).
     /// TabController uses this to keep the window and tab label in sync.
@@ -31,12 +29,10 @@ final class EditorViewController: NSViewController {
 
     init(appearanceManager: AppearanceManager,
          initialFileURL: URL? = nil,
-         restoredContent: String? = nil,
-         loadRecoveryBuffer: Bool = false) {
+         restoredContent: String? = nil) {
         self.appearanceManager = appearanceManager
         self.initialFileURL = initialFileURL
         self.restoredContent = restoredContent
-        self.shouldLoadRecoveryBuffer = loadRecoveryBuffer
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -52,11 +48,8 @@ final class EditorViewController: NSViewController {
         super.viewDidLoad()
 
         documentController.delegate = self
-        findCoordinator = FindBarCoordinator(textView: textView)
         textView.delegate = self
 
-        // Priority: restoredContent > initialFileURL > (legacy single-tab recovery is now
-        // handled by TabController, so shouldLoadRecoveryBuffer is vestigial)
         if let content = restoredContent {
             documentController.restore(content: content, url: initialFileURL)
         } else if let url = initialFileURL {
@@ -85,7 +78,7 @@ final class EditorViewController: NSViewController {
     @objc private func handleTextDidChange(_ notification: Notification) {
         if !documentController.isModified {
             documentController.isModified = true
-            updateWindowState()
+            onStateChanged?()
         }
         onTextChanged?()
         editorView.rulerView.needsDisplay = true
@@ -94,12 +87,6 @@ final class EditorViewController: NSViewController {
     @objc private func selectionDidChange(_ notification: Notification) {
         // Redraw line numbers when cursor moves (to show new line number immediately)
         editorView.rulerView.needsDisplay = true
-    }
-
-    // MARK: - Window state
-
-    private func updateWindowState() {
-        onStateChanged?()
     }
 
     // MARK: - Menu actions (via responder chain, target: nil in menu setup)
@@ -178,7 +165,7 @@ extension EditorViewController: DocumentControllerDelegate {
         tabUndoManager.removeAllActions()
         documentController.isModified = false
         editorView.rulerView.needsDisplay = true
-        updateWindowState()
+        onStateChanged?()
 
         // Wire up syntax highlighting for Markdown files.
         let ext = url?.pathExtension.lowercased()
@@ -191,7 +178,7 @@ extension EditorViewController: DocumentControllerDelegate {
     }
 
     func documentDidSave(url: URL) {
-        updateWindowState()
+        onStateChanged?()
     }
 
     func currentContent() -> String {
