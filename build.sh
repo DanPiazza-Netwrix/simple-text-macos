@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_NAME="SimpleText"
 BUNDLE_ID="com.simpletext.app"
-VERSION="0.0.1.54"
+VERSION="0.0.1.57"
 MIN_MACOS="13.0"
 
 BUILD_DIR=".build/release"
