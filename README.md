@@ -6,7 +6,7 @@ A lightweight, native macOS plaintext editor. No rich formatting — just fast, 
 
 ## Features
 
-- **Tabs** — open multiple files at once (Cmd+T new tab, Cmd+W close tab); right-click a tab for "Close Tabs to the Right" / "Close Other Tabs"; unsaved tabs restored on relaunch
+- **Tabs** — Cmd+T new tab, Cmd+W close tab; right-click a tab for "Close Tabs to the Right" / "Close Other Tabs"; unsaved tabs restored on relaunch
 - **Line numbers** with automatic gutter width
 - **Dark / light mode toggle** (Cmd+Shift+D) — independent of system setting
 - **Remove blank lines** (Edit menu)

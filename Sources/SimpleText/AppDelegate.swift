@@ -74,8 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(fileItem)
         let fileMenu = NSMenu(title: "File")
         fileItem.submenu = fileMenu
-        fileMenu.addItem(item("New Tab",   action: #selector(TabController.newTab(_:)),              key: "t"))
-        fileMenu.addItem(item("New",       action: #selector(EditorViewController.newDocument(_:)),   key: "n"))
+        fileMenu.addItem(item("New",        action: #selector(TabController.newTab(_:)),              key: "t"))
         fileMenu.addItem(item("Open…",     action: #selector(EditorViewController.openDocument(_:)),  key: "o"))
         fileMenu.addItem(.separator())
         fileMenu.addItem(item("Save",      action: #selector(EditorViewController.saveDocument(_:)),  key: "s"))

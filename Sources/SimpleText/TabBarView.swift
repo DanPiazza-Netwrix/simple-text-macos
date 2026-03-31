@@ -7,7 +7,6 @@ protocol TabBarDelegate: AnyObject {
     func tabBar(_ bar: TabBarView, didCloseTabAt index: Int)
     func tabBar(_ bar: TabBarView, didCloseTabsToRightOf index: Int)
     func tabBar(_ bar: TabBarView, didCloseOtherTabsThan index: Int)
-    func tabBarDidClickNewTab(_ bar: TabBarView)
 }
 
 // MARK: - TabBarView
@@ -19,15 +18,9 @@ final class TabBarView: NSView {
     weak var delegate: TabBarDelegate?
     private(set) var selectedIndex: Int = 0
     private var buttons: [TabButton] = []
-    private let addButton = AddTabButton()
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        addButton.onTap = { [weak self] in
-            guard let self else { return }
-            self.delegate?.tabBarDidClickNewTab(self)
-        }
-        addSubview(addButton)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -65,17 +58,13 @@ final class TabBarView: NSView {
     private static let tabMaxWidth: CGFloat = 240
     private static let tabMinWidth: CGFloat = 80
     private static let leftPad:     CGFloat = 8
-    private static let addBtnSize:  CGFloat = 22
-    private static let addBtnGap:   CGFloat = 8   // gap between last tab and + button
 
     private func layoutContents() {
-        let h    = Self.height
-        let n    = buttons.count
-        let btnS = Self.addBtnSize
+        let h = Self.height
+        let n = buttons.count
 
-        // Available width for tabs: full width minus left pad, + button, and its gap
-        let reserved = Self.leftPad + Self.addBtnGap + btnS + 8
-        let available = max(0, bounds.width - reserved)
+        // Available width for tabs: full width minus left pad and a small right margin
+        let available = max(0, bounds.width - Self.leftPad - 8)
 
         // Chrome rule: divide available space equally, clamped to [min, max]
         let tabW: CGFloat = n > 0
@@ -85,14 +74,8 @@ final class TabBarView: NSView {
         var x = Self.leftPad
         for btn in buttons {
             btn.frame = NSRect(x: x, y: 0, width: tabW, height: h)
-            x += tabW   // no gap between tabs — Chrome style
+            x += tabW
         }
-
-        addButton.frame = NSRect(
-            x: x + Self.addBtnGap,
-            y: (h - btnS) / 2,
-            width: btnS, height: btnS
-        )
     }
 
     override func resizeSubviews(withOldSize old: NSSize) {
@@ -280,38 +263,3 @@ final class TabButton: NSView {
     }
 }
 
-// MARK: - AddTabButton
-
-final class AddTabButton: NSView {
-
-    var onTap: (() -> Void)?
-    private var hovered = false
-    private var tracking: NSTrackingArea?
-
-    override func setFrameSize(_ newSize: NSSize) {
-        super.setFrameSize(newSize)
-        if let t = tracking { removeTrackingArea(t) }
-        guard newSize.width > 0 && newSize.height > 0 else { return }
-        tracking = NSTrackingArea(rect: NSRect(origin: .zero, size: newSize), options: [.mouseEnteredAndExited, .activeInKeyWindow], owner: self)
-        addTrackingArea(tracking!)
-    }
-
-    override func mouseEntered(with event: NSEvent) { hovered = true;  needsDisplay = true }
-    override func mouseExited(with event: NSEvent)  { hovered = false; needsDisplay = true }
-    override func mouseDown(with event: NSEvent)    { onTap?() }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        if hovered {
-            (dark ? NSColor(white: 0.26, alpha: 1) : NSColor(white: 0.80, alpha: 1)).setFill()
-            NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 5, yRadius: 5).fill()
-        }
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 16, weight: .light),
-            .foregroundColor: NSColor.secondaryLabelColor,
-        ]
-        let str = NSAttributedString(string: "+", attributes: attrs)
-        let sz  = str.size()
-        str.draw(at: NSPoint(x: bounds.midX - sz.width / 2, y: bounds.midY - sz.height / 2))
-    }
-}

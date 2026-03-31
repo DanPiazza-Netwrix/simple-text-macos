@@ -93,7 +93,11 @@ final class TabController: NSViewController {
     }
 
     @objc func closeTab(_ sender: Any? = nil) {
-        guard editorVCs.count > 1 else { view.window?.orderOut(nil); return }
+        guard editorVCs.count > 1 else {
+            clearSessionIfCleanFile(editorVCs.first)
+            view.window?.orderOut(nil)
+            return
+        }
         detachCurrent()
         editorVCs.remove(at: selectedIndex)
         selectedIndex = min(selectedIndex, editorVCs.count - 1)
@@ -121,7 +125,7 @@ final class TabController: NSViewController {
     func syncWindow() {
         guard let vc = activeEditorVC, let window = view.window else { return }
         let filename = vc.documentController.currentURL?.lastPathComponent ?? "Untitled"
-        window.title = "\(filename) — v0.0.1.54"
+        window.title = "\(filename) — v0.0.1.57"
         window.representedURL = vc.documentController.currentURL
         window.isDocumentEdited = vc.documentController.isModified
         reloadTabBar()
@@ -147,6 +151,17 @@ final class TabController: NSViewController {
         if isViewLoaded {
             reloadTabBar()
             switchTo(index: selectedIndex)
+        }
+    }
+
+    /// If the given VC is a clean saved file (no unsaved changes), clear the
+    /// session so the next launch opens a blank Untitled tab instead of
+    /// re-opening the file. If it's an unsaved buffer, leave the session alone
+    /// — the last snapshotRecovery() call already captured the content.
+    private func clearSessionIfCleanFile(_ vc: EditorViewController?) {
+        guard let dc = vc?.documentController else { return }
+        if dc.currentURL != nil && !dc.isModified {
+            RecoveryBuffer.clear()
         }
     }
 
@@ -198,15 +213,17 @@ final class TabController: NSViewController {
 // MARK: - TabBarDelegate
 
 extension TabController: TabBarDelegate {
-    func tabBarDidClickNewTab(_ bar: TabBarView) { newTab() }
-
     func tabBar(_ bar: TabBarView, didSelectTabAt index: Int) {
         guard index != selectedIndex else { return }
         switchTo(index: index)
     }
 
     func tabBar(_ bar: TabBarView, didCloseTabAt index: Int) {
-        guard editorVCs.count > 1 else { view.window?.orderOut(nil); return }
+        guard editorVCs.count > 1 else {
+            clearSessionIfCleanFile(editorVCs.first)
+            view.window?.orderOut(nil)
+            return
+        }
         let wasSelected = (index == selectedIndex)
         if wasSelected { detachCurrent() }
         editorVCs.remove(at: index)
