@@ -20,6 +20,15 @@
             "command": "bash /Users/daniel.piazza/Source/simple_text/.claude/auto-build.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/daniel.piazza/Source/simple_text/.claude/enforce-docs.sh"
+          }
+        ]
       }
     ]
   }
