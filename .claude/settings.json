@@ -20,6 +20,15 @@
             "command": "bash {{REPO_ROOT}}/.claude/auto-build.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash {{REPO_ROOT}}/.claude/enforce-docs.sh"
+          }
+        ]
       }
     ]
   }
