@@ -34,6 +34,8 @@ final class EditorViewController: NSViewController {
         self.initialFileURL = initialFileURL
         self.restoredContent = restoredContent
         super.init(nibName: nil, bundle: nil)
+        // Pre-populate URL so the tab bar can show the filename before viewDidLoad fires.
+        documentController.currentURL = initialFileURL
     }
 
     required init?(coder: NSCoder) { fatalError() }
