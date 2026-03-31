@@ -24,7 +24,7 @@ Always build with `./build.sh` when the user asks to test or verify — this pro
 - If unsure about what version to build, ask the user first
 - Version is kept in sync across: `WindowController.swift` (initial window title), `TabController.swift` (runtime window title via `syncWindow()`), `build.sh` (VERSION variable)
 - Always report the built version in output so user can confirm in Claude Code
-- Current version: 0.0.1.57
+- Current version: 0.0.1.65
 
 ## Architecture
 
@@ -38,11 +38,11 @@ Swift + AppKit, Swift Package Manager. macOS 13+. No Xcode project file.
 - `LineNumberRulerView.swift` — Plain `NSView` subclass (NOT `NSRulerView`). Positioned as a sibling to the scroll view inside `EditorView`, avoiding all `NSScrollView` ruler machinery (separator lines, dividers). `isFlipped = true` so coordinate math works the same as scroll view content. Uses `NSLayoutManager.enumerateLineFragments` to position numbers. Coordinate math: `rulerY = fragmentRect.midY + textContainerOrigin.y - clipView.bounds.origin.y`. Width is managed via an `NSLayoutConstraint` that is updated dynamically as line count grows.
 - `TabController.swift` — `NSViewController` managing multiple `EditorViewController` instances. Owns a `TabBarView` at top (anchored to `safeAreaLayoutGuide.topAnchor`) and an `editorContainer` below it. Handles tab switching, closing, and opening files without losing the current tab. Wires `onFilesDropped` on each `EditorViewController` so file-URL drops anywhere in the window open a new tab via `openFileInTab(at:)`.
 - `TabBarView.swift` — Custom `NSView` tab bar. Chrome-style tab sizing (fills available width, clamped to min/max). Active tabs get a rounded-rect pill background; inactive tabs are transparent. Contains `TabButton` inner class. `TabButton` overrides `menu(for:)` to show a right-click context menu ("Close Tabs to the Right", "Close Other Tabs"); uses `autoenablesItems = false` so items gray out correctly when not applicable (rightmost tab / only tab). No `+` button — new tabs are opened via Cmd+T.
-- `SyntaxHighlighter.swift` — `NSTextStorageDelegate` implementation for Markdown syntax highlighting. Uses VS Code Dark+/Light+ dynamic colors via `NSColor(name:dynamicProvider:)`. Pre-compiled static regex patterns. Activated only for `.md`/`.markdown` files. Guard on `.editedCharacters` prevents infinite attribute-change loops. Wired in `EditorViewController.documentDidLoad`.
+- `SyntaxHighlighter.swift` — `NSTextStorageDelegate` implementation for Markdown syntax highlighting. Uses VS Code Dark+/Light+ dynamic colors via `NSColor(name:dynamicProvider:)`. Pre-compiled static regex patterns. Activated only for `.md`/`.markdown` files. Uses **`NSLayoutManager` temporary attributes** (`addTemporaryAttributes`) instead of `NSTextStorage.addAttributes` — temporary attributes are purely visual overlays that are never tracked by the undo manager and never saved to file. Fires in `didProcessEditing` (not `willProcessEditing`). Wired in `EditorViewController.documentDidLoad`.
 - `FindBarCoordinator.swift` — thin wrapper activating AppKit's native find bar on the text view.
 - `DocumentController.swift` — file I/O (open, save, new). `restore(content:url:)` sets `isModified = true` after the delegate call so restored tabs are immediately saveable without requiring edits.
-- `EditorViewController.swift` — central coordinator; owns `DocumentController`, `AppearanceManager`, `EditorView`. Loads recovery buffer on `viewDidLoad`. All `@objc` menu actions wired via responder chain (`target: nil` in `AppDelegate.buildMainMenu`). Exposes `onFilesDropped: (([URL]) -> Void)?` callback forwarded from `EditorView` up to `TabController`.
-- `WindowController.swift` — window creation, appearance override, background mode, and frame autosaving. Closes window but keeps app running (`windowShouldClose` returns false, calls `orderOut`). Saves and restores window position/size via `setFrameAutosaveName`.
+- `EditorViewController.swift` — central coordinator; owns `DocumentController`, `AppearanceManager`, `EditorView`. Loads recovery buffer on `viewDidLoad`. All `@objc` menu actions wired via responder chain (`target: nil` in `AppDelegate.buildMainMenu`). Exposes `onFilesDropped: (([URL]) -> Void)?` callback forwarded from `EditorView` up to `TabController`. Owns a per-tab `tabUndoManager: UndoManager` (returned by `WindowController.windowWillReturnUndoManager`). Conforms to `NSTextViewDelegate` and calls `textView.breakUndoCoalescing()` at word-boundary characters (space, newline, punctuation) to achieve word-granularity undo.
+- `WindowController.swift` — window creation, appearance override, background mode, and frame autosaving. Closes window but keeps app running (`windowShouldClose` returns false, calls `orderOut`). Saves and restores window position/size via `setFrameAutosaveName`. Implements `windowWillReturnUndoManager(_:)` to return the active tab's per-tab `UndoManager`, giving each tab an isolated undo stack.
 - `AppDelegate.swift` — app lifecycle and programmatic menu construction. `applicationShouldHandleReopen(_:hasVisibleWindows:)` re-shows the window when the Dock icon is clicked while all windows are hidden.
 
 ## Color rules
@@ -64,6 +64,19 @@ Files dragged onto the app window open in a new tab. Implementation notes:
 ## Find bar
 
 Uses the **native AppKit find bar** (`textView.usesFindBar = true`). Do not replace with a custom find UI — the native bar gives Next/Prev/case-sensitive/match-count for free.
+
+## Undo architecture
+
+Each tab has its own isolated undo stack:
+
+- `EditorViewController` owns a `let tabUndoManager = UndoManager()` instance.
+- `WindowController` implements `windowWillReturnUndoManager(_:) -> UndoManager?` returning `tabController.activeEditorVC?.tabUndoManager`. This intercepts the window-level undo lookup that `NSTextView` uses for both **registering** and **executing** undo — so both go to the active tab's manager.
+- When switching tabs, the window's undo manager automatically becomes the new tab's manager.
+- `tabUndoManager.removeAllActions()` is called in `documentDidLoad` to clear history when a new file loads.
+- Word-boundary granularity: `EditorViewController` conforms to `NSTextViewDelegate` and calls `textView.breakUndoCoalescing()` whenever a space, newline, or punctuation character is about to be inserted. This seals the previous word as its own undo step, matching TextEdit/VS Code behavior.
+- Syntax highlighting uses `NSLayoutManager` temporary attributes — these are never tracked by the undo manager, so highlighting changes are never undo-able.
+
+**Do NOT** try to manage undo grouping manually via `beginUndoGrouping`/`endUndoGrouping` — with `groupsByEvent = true` (default), calling `endUndoGrouping` when no group is open throws `NSInternalInconsistencyException`.
 
 ## Undo for text replacements
 

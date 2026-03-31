@@ -23,6 +23,8 @@ private let vsLinkText = vscodeColor(dark: 0x569cd6, light: 0x0070c1)  // blue  
 private let vsLinkURL  = vscodeColor(dark: 0xce9178, light: 0xa31515)  // same as code
 
 /// Applies Markdown syntax highlighting to an NSTextView via NSTextStorageDelegate.
+/// Uses NSLayoutManager temporary attributes — these are purely visual overlays that
+/// are never tracked by the undo manager and never saved to file.
 /// Only active for .md / .markdown files — lifecycle managed by EditorViewController.
 final class SyntaxHighlighter: NSObject, NSTextStorageDelegate {
 
@@ -34,92 +36,96 @@ final class SyntaxHighlighter: NSObject, NSTextStorageDelegate {
     }
 
     /// Call once after setting textView.string on initial file load.
-    /// (willProcessEditing only fires on edits, not on programmatic string assignment.)
+    /// (didProcessEditing only fires on edits, not on programmatic string assignment.)
     func highlightAll() {
-        guard let ts = textView?.textStorage else { return }
-        applyHighlighting(to: ts)
+        guard let tv = textView,
+              let ts = tv.textStorage,
+              let lm = tv.layoutManager else { return }
+        applyHighlighting(string: ts.string, layoutManager: lm, font: tv.font)
     }
 
     // MARK: - NSTextStorageDelegate
 
     func textStorage(_ textStorage: NSTextStorage,
-                     willProcessEditing editedMask: NSTextStorageEditActions,
+                     didProcessEditing editedMask: NSTextStorageEditActions,
                      range editedRange: NSRange,
                      changeInLength delta: Int) {
-        // Guard: attribute-only edits (e.g. our own highlight pass) have
-        // .editedAttributes but NOT .editedCharacters — skipping them
-        // is what breaks the infinite-loop cycle.
+        // Only re-highlight when actual characters changed.
         guard editedMask.contains(.editedCharacters) else { return }
-        applyHighlighting(to: textStorage)
+        guard let tv = textView,
+              let lm = tv.layoutManager else { return }
+        applyHighlighting(string: textStorage.string, layoutManager: lm, font: tv.font)
     }
 
     // MARK: - Core
 
-    private func applyHighlighting(to ts: NSTextStorage) {
-        guard let font = textView?.font else { return }
-        let str  = ts.string
+    private func applyHighlighting(string str: String, layoutManager lm: NSLayoutManager, font: NSFont?) {
+        guard let font else { return }
         let full = NSRange(location: 0, length: (str as NSString).length)
         guard full.length > 0 else { return }
 
-        // 1. Reset every character to the base font and color.
-        ts.addAttributes([.foregroundColor: NSColor.labelColor, .font: font], range: full)
+        // 1. Reset all temporary attributes over the full range.
+        lm.removeTemporaryAttribute(.foregroundColor, forCharacterRange: full)
+        lm.removeTemporaryAttribute(.font,            forCharacterRange: full)
+        lm.removeTemporaryAttribute(.backgroundColor, forCharacterRange: full)
+        lm.removeTemporaryAttribute(.strikethroughStyle, forCharacterRange: full)
 
-        let mono  = NSFont.monospacedSystemFont(ofSize: font.pointSize, weight: .regular)
+        let mono   = NSFont.monospacedSystemFont(ofSize: font.pointSize, weight: .regular)
         let codeBg = NSColor.secondaryLabelColor.withAlphaComponent(0.08)
 
         // 2. Fenced code blocks  (``` … ```)  — applied first so later inline
         //    passes don't re-color content inside a code block.
         Self.reFencedCode.enumerateMatches(in: str, range: full) { m, _, _ in
             guard let r = m?.range, r.length > 0 else { return }
-            ts.addAttributes([.font: mono,
-                               .foregroundColor: vsCode,
-                               .backgroundColor: codeBg], range: r)
+            lm.addTemporaryAttributes([.font: mono,
+                                       .foregroundColor: vsCode,
+                                       .backgroundColor: codeBg], forCharacterRange: r)
         }
 
         // 3. Block-level patterns
         Self.reHeading.enumerateMatches(in: str, range: full) { [weak self] m, _, _ in
             guard let self, let r = m?.range, r.length > 0 else { return }
-            ts.addAttributes([.foregroundColor: vsHeading,
-                               .font: self.withTrait(.bold, base: font)], range: r)
+            lm.addTemporaryAttributes([.foregroundColor: vsHeading,
+                                       .font: self.withTrait(.bold, base: font)], forCharacterRange: r)
         }
 
         Self.reBlockquote.enumerateMatches(in: str, range: full) { m, _, _ in
             guard let r = m?.range, r.length > 0 else { return }
-            ts.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor, range: r)
+            lm.addTemporaryAttribute(.foregroundColor, value: NSColor.secondaryLabelColor, forCharacterRange: r)
         }
 
         Self.reHRule.enumerateMatches(in: str, range: full) { m, _, _ in
             guard let r = m?.range, r.length > 0 else { return }
-            ts.addAttribute(.foregroundColor, value: NSColor.tertiaryLabelColor, range: r)
+            lm.addTemporaryAttribute(.foregroundColor, value: NSColor.tertiaryLabelColor, forCharacterRange: r)
         }
 
         // 4. Inline patterns (bold+italic before bold/italic so *** matches first)
         Self.reBoldItalic.enumerateMatches(in: str, range: full) { [weak self] m, _, _ in
             guard let self, let r = m?.range, r.length > 0 else { return }
-            ts.addAttribute(.font, value: withTrait([.bold, .italic], base: font), range: r)
+            lm.addTemporaryAttribute(.font, value: withTrait([.bold, .italic], base: font), forCharacterRange: r)
         }
 
         Self.reBold.enumerateMatches(in: str, range: full) { [weak self] m, _, _ in
             guard let self, let r = m?.range, r.length > 0 else { return }
-            ts.addAttribute(.font, value: withTrait(.bold, base: font), range: r)
+            lm.addTemporaryAttribute(.font, value: withTrait(.bold, base: font), forCharacterRange: r)
         }
 
         Self.reItalic.enumerateMatches(in: str, range: full) { [weak self] m, _, _ in
             guard let self, let r = m?.range, r.length > 0 else { return }
-            ts.addAttribute(.font, value: withTrait(.italic, base: font), range: r)
+            lm.addTemporaryAttribute(.font, value: withTrait(.italic, base: font), forCharacterRange: r)
         }
 
         Self.reInlineCode.enumerateMatches(in: str, range: full) { m, _, _ in
             guard let r = m?.range, r.length > 0 else { return }
-            ts.addAttributes([.font: mono,
-                               .foregroundColor: vsCode,
-                               .backgroundColor: codeBg], range: r)
+            lm.addTemporaryAttributes([.font: mono,
+                                       .foregroundColor: vsCode,
+                                       .backgroundColor: codeBg], forCharacterRange: r)
         }
 
         Self.reStrikethrough.enumerateMatches(in: str, range: full) { m, _, _ in
             guard let r = m?.range, r.length > 0 else { return }
-            ts.addAttributes([.foregroundColor: NSColor.secondaryLabelColor,
-                               .strikethroughStyle: NSUnderlineStyle.single.rawValue], range: r)
+            lm.addTemporaryAttributes([.foregroundColor: NSColor.secondaryLabelColor,
+                                       .strikethroughStyle: NSUnderlineStyle.single.rawValue], forCharacterRange: r)
         }
 
         // Links: [text] and (url) colored per VS Code
@@ -128,10 +134,10 @@ final class SyntaxHighlighter: NSObject, NSTextStorageDelegate {
             let textRange = match.range(at: 1)
             let urlRange  = match.range(at: 2)
             if textRange.location != NSNotFound {
-                ts.addAttribute(.foregroundColor, value: vsLinkText, range: textRange)
+                lm.addTemporaryAttribute(.foregroundColor, value: vsLinkText, forCharacterRange: textRange)
             }
             if urlRange.location != NSNotFound {
-                ts.addAttribute(.foregroundColor, value: vsLinkURL, range: urlRange)
+                lm.addTemporaryAttribute(.foregroundColor, value: vsLinkURL, forCharacterRange: urlRange)
             }
         }
     }

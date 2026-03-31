@@ -12,7 +12,7 @@ final class WindowController: NSWindowController, NSWindowDelegate {
             backing:     .buffered,
             defer:       false
         )
-        window.title    = "Untitled — v0.0.1.57"
+        window.title    = "Untitled — v0.0.1.65"
         window.minSize  = NSSize(width: 480, height: 300)
 
         self.init(window: window)
@@ -30,6 +30,10 @@ final class WindowController: NSWindowController, NSWindowDelegate {
     }
 
     // MARK: - NSWindowDelegate
+
+    func windowWillReturnUndoManager(_ window: NSWindow) -> UndoManager? {
+        tabController.activeEditorVC?.tabUndoManager
+    }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         // Hide instead of close, keep app running in background
