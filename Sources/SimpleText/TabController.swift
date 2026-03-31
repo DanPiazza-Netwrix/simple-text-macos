@@ -99,8 +99,7 @@ final class TabController: NSViewController {
 
     private func performCloseCurrentTab() {
         guard editorVCs.count > 1 else {
-            clearSessionIfCleanFile(editorVCs.first)
-            view.window?.orderOut(nil)
+            replaceLastTabWithBlank()
             return
         }
         detachCurrent()
@@ -130,7 +129,7 @@ final class TabController: NSViewController {
     func syncWindow() {
         guard let vc = activeEditorVC, let window = view.window else { return }
         let filename = vc.documentController.currentURL?.lastPathComponent ?? "Untitled"
-        window.title = "\(filename) — v0.0.1.68"
+        window.title = "\(filename) — v0.0.1.69"
         window.representedURL = vc.documentController.currentURL
         window.isDocumentEdited = vc.documentController.isModified
         reloadTabBar()
@@ -186,15 +185,14 @@ final class TabController: NSViewController {
         }
     }
 
-    /// If the given VC is a clean saved file (no unsaved changes), clear the
-    /// session so the next launch opens a blank Untitled tab instead of
-    /// re-opening the file. If it's an unsaved buffer, leave the session alone
-    /// — the last snapshotRecovery() call already captured the content.
-    private func clearSessionIfCleanFile(_ vc: EditorViewController?) {
-        guard let dc = vc?.documentController else { return }
-        if dc.currentURL != nil && !dc.isModified {
-            RecoveryBuffer.clear()
-        }
+    /// Closes the last remaining tab and replaces it with a fresh blank tab,
+    /// keeping the window open. The session is snapshotted to reflect the blank state.
+    private func replaceLastTabWithBlank() {
+        detachCurrent()
+        editorVCs.removeAll()
+        selectedIndex = 0
+        appendEditorVC()  // appends, reloads tab bar, and switches to index 0
+        snapshotRecovery()
     }
 
     private func snapshotRecovery() {
@@ -257,8 +255,7 @@ extension TabController: TabBarDelegate {
 
     private func performClose(at index: Int) {
         guard editorVCs.count > 1 else {
-            clearSessionIfCleanFile(editorVCs.first)
-            view.window?.orderOut(nil)
+            replaceLastTabWithBlank()
             return
         }
         let wasSelected = (index == selectedIndex)
