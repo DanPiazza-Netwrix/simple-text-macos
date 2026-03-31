@@ -66,4 +66,3 @@ Built with **Swift + AppKit**, structured for future cross-platform portability:
 | `WindowController.swift` | Window lifecycle; hides on close (background mode) |
 | `AppDelegate.swift` | App lifecycle and programmatic menu bar construction |
 | `SyntaxHighlighter.swift` | Markdown syntax highlighting using VS Code–matched colors; uses `NSLayoutManager` temporary attributes (not undo-tracked) |
-| `FindBarCoordinator.swift` | Thin wrapper around AppKit's native find bar |

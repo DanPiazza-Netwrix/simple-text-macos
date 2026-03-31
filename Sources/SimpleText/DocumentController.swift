@@ -12,7 +12,6 @@ final class DocumentController {
     private(set) var currentURL: URL?
     var isModified: Bool = false
     weak var delegate: DocumentControllerDelegate?
-    weak var window: NSWindow?
 
     // MARK: - Public API
 
@@ -37,7 +36,7 @@ final class DocumentController {
         panel.canChooseDirectories  = false
         panel.allowsMultipleSelection = false
         panel.allowedContentTypes   = [.text, .plainText, .sourceCode, .data]
-        guard let w = window ?? NSApp.keyWindow ?? NSApp.mainWindow else { return }
+        guard let w = NSApp.keyWindow ?? NSApp.mainWindow else { return }
         panel.beginSheetModal(for: w) { [weak self] resp in
             guard resp == .OK, let url = panel.url, let self else { return }
             self.loadFile(at: url)
@@ -57,7 +56,7 @@ final class DocumentController {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.plainText]
         panel.nameFieldStringValue = currentURL?.lastPathComponent ?? "Untitled.txt"
-        guard let w = window ?? NSApp.keyWindow ?? NSApp.mainWindow else { return }
+        guard let w = NSApp.keyWindow ?? NSApp.mainWindow else { return }
         panel.beginSheetModal(for: w) { [weak self] resp in
             guard resp == .OK, let url = panel.url, let self else { return }
             self.currentURL = url
