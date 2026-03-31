@@ -129,7 +129,7 @@ final class TabController: NSViewController {
     func syncWindow() {
         guard let vc = activeEditorVC, let window = view.window else { return }
         let filename = vc.documentController.currentURL?.lastPathComponent ?? "Untitled"
-        window.title = "\(filename) — v0.0.1.70"
+        window.title = "\(filename) — v0.0.1.73"
         window.representedURL = vc.documentController.currentURL
         window.isDocumentEdited = vc.documentController.isModified
         reloadTabBar()
@@ -156,6 +156,52 @@ final class TabController: NSViewController {
             reloadTabBar()
             switchTo(index: selectedIndex)
         }
+    }
+
+    /// Returns true if `vc` needs a save prompt before closing.
+    private func needsPrompt(_ vc: EditorViewController) -> Bool {
+        let dc = vc.documentController
+        if dc.currentURL != nil && dc.isModified { return true }
+        if dc.currentURL == nil && dc.isModified && !vc.currentContent().isEmpty { return true }
+        return false
+    }
+
+    /// Processes `vcs` one at a time: prompts for dirty tabs, closes each tab immediately
+    /// after its prompt is resolved, then moves on to the next. Cancelling any prompt
+    /// aborts the rest of the batch.
+    private func confirmAndCloseMultiple(vcs: [EditorViewController]) {
+        guard !vcs.isEmpty else { return }
+        var rest = vcs
+        let vc = rest.removeFirst()
+
+        let closeAndContinue = { [weak self] in
+            guard let self else { return }
+            if let idx = self.editorVCs.firstIndex(of: vc) { self.closeVC(at: idx) }
+            self.confirmAndCloseMultiple(vcs: rest)
+        }
+
+        if needsPrompt(vc) {
+            confirmAndClose(vc: vc, closeAction: closeAndContinue)
+        } else {
+            closeAndContinue()
+        }
+    }
+
+    /// Closes the tab at `index` without any prompt. Updates selectedIndex, reloads the
+    /// tab bar, and snapshots recovery. Does nothing if it would remove the last tab.
+    private func closeVC(at index: Int) {
+        guard editorVCs.count > 1 else { return }
+        let wasSelected = (index == selectedIndex)
+        if wasSelected { detachCurrent() }
+        editorVCs.remove(at: index)
+        if index < selectedIndex {
+            selectedIndex -= 1
+        } else if wasSelected {
+            selectedIndex = min(selectedIndex, editorVCs.count - 1)
+        }
+        reloadTabBar()
+        if wasSelected { switchTo(index: selectedIndex) }
+        snapshotRecovery()
     }
 
     /// Shows a Save/Don't Save/Cancel sheet when closing a tab with unsaved content.
@@ -296,25 +342,13 @@ extension TabController: TabBarDelegate {
 
     func tabBar(_ bar: TabBarView, didCloseTabsToRightOf index: Int) {
         guard index < editorVCs.count - 1 else { return }
-        if selectedIndex > index {
-            detachCurrent()
-            selectedIndex = index
-        }
-        editorVCs.removeSubrange((index + 1)...)
-        reloadTabBar()
-        if currentChildVC == nil { switchTo(index: selectedIndex) }
-        snapshotRecovery()
+        confirmAndCloseMultiple(vcs: Array(editorVCs[(index + 1)...]))
     }
 
     func tabBar(_ bar: TabBarView, didCloseOtherTabsThan index: Int) {
         guard editorVCs.count > 1 else { return }
         let keep = editorVCs[index]
-        if currentChildVC !== keep { detachCurrent() }
-        editorVCs = [keep]
-        selectedIndex = 0
-        reloadTabBar()
-        if currentChildVC == nil { switchTo(index: 0) } else { syncWindow() }
-        snapshotRecovery()
+        confirmAndCloseMultiple(vcs: editorVCs.filter { $0 !== keep })
     }
 
     func tabBar(_ bar: TabBarView, didMoveTabFrom fromIndex: Int, to toIndex: Int) {
