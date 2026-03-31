@@ -9,7 +9,7 @@ protocol DocumentControllerDelegate: AnyObject {
 
 final class DocumentController {
 
-    private(set) var currentURL: URL?
+    var currentURL: URL?
     var isModified: Bool = false
     weak var delegate: DocumentControllerDelegate?
 
