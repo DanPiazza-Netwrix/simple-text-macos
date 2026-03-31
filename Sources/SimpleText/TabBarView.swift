@@ -7,6 +7,7 @@ protocol TabBarDelegate: AnyObject {
     func tabBar(_ bar: TabBarView, didCloseTabAt index: Int)
     func tabBar(_ bar: TabBarView, didCloseTabsToRightOf index: Int)
     func tabBar(_ bar: TabBarView, didCloseOtherTabsThan index: Int)
+    func tabBar(_ bar: TabBarView, didMoveTabFrom fromIndex: Int, to toIndex: Int)
 }
 
 // MARK: - TabBarView
@@ -18,6 +19,11 @@ final class TabBarView: NSView {
     weak var delegate: TabBarDelegate?
     private(set) var selectedIndex: Int = 0
     private var buttons: [TabButton] = []
+
+    // Drag state
+    private var draggingIndex: Int?
+    private var dropIndex:     Int = 0
+    private var dragTabWidth:  CGFloat = 0
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -37,14 +43,15 @@ final class TabBarView: NSView {
             let idx = i
             btn.onSelect       = { [weak self] in guard let s = self else { return }; s.delegate?.tabBar(s, didSelectTabAt: idx) }
             btn.onClose        = { [weak self] in guard let s = self else { return }; s.delegate?.tabBar(s, didCloseTabAt: idx) }
-            // Only offer "close other tabs" when there are other tabs
             if titles.count > 1 {
                 btn.onCloseOthers = { [weak self] in guard let s = self else { return }; s.delegate?.tabBar(s, didCloseOtherTabsThan: idx) }
             }
-            // Only offer "close to right" when there are tabs to the right
             if i < titles.count - 1 {
                 btn.onCloseToRight = { [weak self] in guard let s = self else { return }; s.delegate?.tabBar(s, didCloseTabsToRightOf: idx) }
             }
+            btn.onDragStarted = { [weak self] in self?.beginDrag(from: idx) }
+            btn.onDragged     = { [weak self] x in self?.moveDrag(to: x) }
+            btn.onDragEnded   = { [weak self] in self?.endDrag() }
             addSubview(btn)
             buttons.append(btn)
         }
@@ -63,10 +70,7 @@ final class TabBarView: NSView {
         let h = Self.height
         let n = buttons.count
 
-        // Available width for tabs: full width minus left pad and a small right margin
         let available = max(0, bounds.width - Self.leftPad - 8)
-
-        // Chrome rule: divide available space equally, clamped to [min, max]
         let tabW: CGFloat = n > 0
             ? min(Self.tabMaxWidth, max(Self.tabMinWidth, (available / CGFloat(n)).rounded(.down)))
             : Self.tabMaxWidth
@@ -80,7 +84,63 @@ final class TabBarView: NSView {
 
     override func resizeSubviews(withOldSize old: NSSize) {
         super.resizeSubviews(withOldSize: old)
-        layoutContents()
+        if draggingIndex == nil { layoutContents() }
+    }
+
+    // MARK: - Drag
+
+    private func beginDrag(from index: Int) {
+        guard index < buttons.count else { return }
+        draggingIndex = index
+        dropIndex     = index
+        dragTabWidth  = buttons[index].frame.width
+        // Bring dragged button to front of z-order
+        addSubview(buttons[index])
+        buttons[index].alphaValue = 0.85
+    }
+
+    private func moveDrag(to mouseX: CGFloat) {
+        guard let fromIndex = draggingIndex, fromIndex < buttons.count else { return }
+        let btn  = buttons[fromIndex]
+        let tabW = dragTabWidth
+        let n    = buttons.count
+
+        // Clamp button position within the tab rail
+        let minX = Self.leftPad
+        let maxX = Self.leftPad + tabW * CGFloat(n - 1)
+        let newX = max(minX, min(maxX, mouseX - tabW / 2))
+        btn.frame.origin.x = newX
+
+        // Compute insertion slot from button center
+        let toIndex = max(0, min(n - 1, Int((newX + tabW / 2 - Self.leftPad) / tabW)))
+        guard toIndex != dropIndex else { return }
+        dropIndex = toIndex
+
+        // Slide non-dragged buttons into their new positions
+        var slot = 0
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.12
+            ctx.allowsImplicitAnimation = false
+            for (i, b) in buttons.enumerated() where i != fromIndex {
+                if slot == toIndex { slot += 1 }
+                b.animator().frame = NSRect(x: Self.leftPad + tabW * CGFloat(slot),
+                                            y: 0, width: tabW, height: Self.height)
+                slot += 1
+            }
+        }
+    }
+
+    private func endDrag() {
+        guard let fromIndex = draggingIndex else { return }
+        draggingIndex = nil
+        if fromIndex < buttons.count { buttons[fromIndex].alphaValue = 1.0 }
+
+        if fromIndex != dropIndex {
+            delegate?.tabBar(self, didMoveTabFrom: fromIndex, to: dropIndex)
+            // delegate calls reloadTabs which resets all frames
+        } else {
+            layoutContents()
+        }
     }
 
     // MARK: - Drawing
@@ -99,6 +159,9 @@ final class TabButton: NSView {
     var onClose:        (() -> Void)?
     var onCloseToRight: (() -> Void)?
     var onCloseOthers:  (() -> Void)?
+    var onDragStarted:  (() -> Void)?
+    var onDragged:      ((_ mouseX: CGFloat) -> Void)?
+    var onDragEnded:    (() -> Void)?
 
     private let label: NSTextField
     private var isSelected:   Bool
@@ -106,11 +169,15 @@ final class TabButton: NSView {
     private var tabHovered   = false
     private var closeHovered = false
 
+    // Drag tracking
+    private var dragStartPoint: NSPoint?
+    private var isDragging = false
+
     // Layout constants
-    private static let vInset:     CGFloat = 4     // top/bottom inset for pill rect
-    private static let hInset:     CGFloat = 2     // left/right inset for pill rect
+    private static let vInset:     CGFloat = 4
+    private static let hInset:     CGFloat = 2
     private static let cornerR:    CGFloat = 6
-    private static let hPad:       CGFloat = 10    // text left padding inside pill
+    private static let hPad:       CGFloat = 10
     private static let closeSize:  CGFloat = 14
     private static let closeRight: CGFloat = 7
     private static let fontSize:   CGFloat = 11.5
@@ -121,7 +188,6 @@ final class TabButton: NSView {
         return max(80, min(220, (Self.hPad + tw + 4 + Self.closeSize + Self.closeRight + Self.hInset * 2).rounded(.up)))
     }
 
-    // Close icon rect in the button's local (non-flipped) coordinate space
     private var closeRect: NSRect {
         NSRect(
             x: bounds.maxX - Self.closeSize - Self.closeRight - Self.hInset,
@@ -137,6 +203,7 @@ final class TabButton: NSView {
         self.isModified = isModified
         label = NSTextField(labelWithString: title)
         super.init(frame: .zero)
+        wantsLayer = true
         label.font = .systemFont(ofSize: Self.fontSize)
         label.lineBreakMode = .byTruncatingMiddle
         label.isBezeled = false
@@ -148,7 +215,7 @@ final class TabButton: NSView {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    // MARK: - Layout (called when frame is set from outside)
+    // MARK: - Layout
 
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
@@ -190,7 +257,31 @@ final class TabButton: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let pt = convert(event.locationInWindow, from: nil)
-        if closeRect.contains(pt) { onClose?() } else { onSelect?() }
+        dragStartPoint = pt
+        isDragging = false
+        // Select immediately; close waits for mouseUp (so accidental drags don't close)
+        if !closeRect.contains(pt) { onSelect?() }
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let start = dragStartPoint else { return }
+        let pt = convert(event.locationInWindow, from: nil)
+        if !isDragging {
+            guard abs(pt.x - start.x) > 4 else { return }
+            isDragging = true
+            onDragStarted?()
+        }
+        let mouseX = superview?.convert(event.locationInWindow, from: nil).x ?? pt.x
+        onDragged?(mouseX)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        defer { dragStartPoint = nil; isDragging = false }
+        if isDragging {
+            onDragEnded?()
+        } else if let start = dragStartPoint, closeRect.contains(start) {
+            onClose?()
+        }
     }
 
     // MARK: - Context menu
@@ -221,7 +312,6 @@ final class TabButton: NSView {
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let h = bounds.height
 
-        // Pill background
         let pillRect = NSRect(
             x: Self.hInset, y: Self.vInset,
             width: bounds.width - Self.hInset * 2,
@@ -236,19 +326,15 @@ final class TabButton: NSView {
             (dark ? NSColor(white: 0.20, alpha: 1) : NSColor(white: 0.80, alpha: 1)).setFill()
             pillPath.fill()
         }
-        // Inactive tabs: no background drawn — title floats on bar
 
-        // Label color
         label.textColor = isSelected ? .labelColor : .secondaryLabelColor
 
-        // Close (✕) / modified (●) indicator
         let showDot = isModified && !closeHovered
         let sym     = showDot ? "●" : "✕"
         let symPt: CGFloat = 9
         let symCol: NSColor = {
             if showDot      { return .systemOrange }
             if closeHovered { return .labelColor }
-            // Only show ✕ dimly when selected or hovered; invisible on plain inactive tabs
             return (isSelected || tabHovered) ? .secondaryLabelColor : NSColor.clear
         }()
 
@@ -262,4 +348,3 @@ final class TabButton: NSView {
         str.draw(at: NSPoint(x: cr.midX - sz.width / 2, y: cr.midY - sz.height / 2))
     }
 }
-

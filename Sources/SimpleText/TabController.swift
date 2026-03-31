@@ -130,7 +130,7 @@ final class TabController: NSViewController {
     func syncWindow() {
         guard let vc = activeEditorVC, let window = view.window else { return }
         let filename = vc.documentController.currentURL?.lastPathComponent ?? "Untitled"
-        window.title = "\(filename) — v0.0.1.67"
+        window.title = "\(filename) — v0.0.1.68"
         window.representedURL = vc.documentController.currentURL
         window.isDocumentEdited = vc.documentController.isModified
         reloadTabBar()
@@ -295,6 +295,24 @@ extension TabController: TabBarDelegate {
         selectedIndex = 0
         reloadTabBar()
         if currentChildVC == nil { switchTo(index: 0) } else { syncWindow() }
+        snapshotRecovery()
+    }
+
+    func tabBar(_ bar: TabBarView, didMoveTabFrom fromIndex: Int, to toIndex: Int) {
+        guard fromIndex != toIndex,
+              editorVCs.indices.contains(fromIndex),
+              editorVCs.indices.contains(toIndex) else { return }
+        let vc = editorVCs.remove(at: fromIndex)
+        editorVCs.insert(vc, at: toIndex)
+        // Keep the selected tab visually tracked through the move
+        if selectedIndex == fromIndex {
+            selectedIndex = toIndex
+        } else if fromIndex < selectedIndex && toIndex >= selectedIndex {
+            selectedIndex -= 1
+        } else if fromIndex > selectedIndex && toIndex <= selectedIndex {
+            selectedIndex += 1
+        }
+        reloadTabBar()
         snapshotRecovery()
     }
 }
