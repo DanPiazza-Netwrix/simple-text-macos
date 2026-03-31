@@ -3,7 +3,7 @@ import AppKit
 final class TabController: NSViewController {
 
     private let appearanceManager: AppearanceManager
-    private var editorVCs: [EditorViewController] = []
+    var editorVCs: [EditorViewController] = []
     private var selectedIndex: Int = 0
     private var currentChildVC: EditorViewController?
 
@@ -93,6 +93,11 @@ final class TabController: NSViewController {
     }
 
     @objc func closeTab(_ sender: Any? = nil) {
+        guard let vc = editorVCs[safe: selectedIndex] else { return }
+        confirmAndClose(vc: vc) { [weak self] in self?.performCloseCurrentTab() }
+    }
+
+    private func performCloseCurrentTab() {
         guard editorVCs.count > 1 else {
             clearSessionIfCleanFile(editorVCs.first)
             view.window?.orderOut(nil)
@@ -125,7 +130,7 @@ final class TabController: NSViewController {
     func syncWindow() {
         guard let vc = activeEditorVC, let window = view.window else { return }
         let filename = vc.documentController.currentURL?.lastPathComponent ?? "Untitled"
-        window.title = "\(filename) — v0.0.1.65"
+        window.title = "\(filename) — v0.0.1.66"
         window.representedURL = vc.documentController.currentURL
         window.isDocumentEdited = vc.documentController.isModified
         reloadTabBar()
@@ -151,6 +156,33 @@ final class TabController: NSViewController {
         if isViewLoaded {
             reloadTabBar()
             switchTo(index: selectedIndex)
+        }
+    }
+
+    /// Shows a Save/Don't Save/Cancel sheet when closing a named file with unsaved changes.
+    /// Calls `closeAction` immediately if no prompt is needed (untitled buffers, or clean files).
+    private func confirmAndClose(vc: EditorViewController, closeAction: @escaping () -> Void) {
+        guard let url = vc.documentController.currentURL,
+              vc.documentController.isModified,
+              let window = view.window else {
+            closeAction()
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = "Save \"\(url.lastPathComponent)\" before closing?"
+        alert.informativeText = "Your changes will be lost if you don't save."
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Don't Save")
+        alert.addButton(withTitle: "Cancel")
+        alert.beginSheetModal(for: window) { response in
+            switch response {
+            case .alertFirstButtonReturn:   // Save
+                vc.documentController.saveDocument()
+                closeAction()
+            case .alertSecondButtonReturn:  // Don't Save
+                closeAction()
+            default: break                  // Cancel — abort close
+            }
         }
     }
 
@@ -219,6 +251,11 @@ extension TabController: TabBarDelegate {
     }
 
     func tabBar(_ bar: TabBarView, didCloseTabAt index: Int) {
+        guard let vc = editorVCs[safe: index] else { return }
+        confirmAndClose(vc: vc) { [weak self] in self?.performClose(at: index) }
+    }
+
+    private func performClose(at index: Int) {
         guard editorVCs.count > 1 else {
             clearSessionIfCleanFile(editorVCs.first)
             view.window?.orderOut(nil)
