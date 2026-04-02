@@ -82,7 +82,7 @@ final class LanguageRegistry {
             case "Python":      return try LanguageConfiguration(tree_sitter_python(),      name: "Python")
             case "JavaScript":  return try LanguageConfiguration(tree_sitter_javascript(),  name: "JavaScript")
             case "TypeScript":  return try LanguageConfiguration(tree_sitter_typescript(),  name: "TypeScript")
-            case "TSX":         return try LanguageConfiguration(tree_sitter_tsx(),         name: "TSX")
+            case "TSX":         return try LanguageConfiguration(tree_sitter_tsx(),         name: "TSX",        bundleName: "TreeSitterTypeScript_TreeSitterTSX")
             case "JSON":        return try LanguageConfiguration(tree_sitter_json(),        name: "JSON")
             case "HTML":        return try LanguageConfiguration(tree_sitter_html(),        name: "HTML")
             case "CSS":         return try LanguageConfiguration(tree_sitter_css(),         name: "CSS")
@@ -92,7 +92,7 @@ final class LanguageRegistry {
             case "Java":        return try LanguageConfiguration(tree_sitter_java(),        name: "Java")
             case "Ruby":        return try LanguageConfiguration(tree_sitter_ruby(),        name: "Ruby")
             case "YAML":        return try LanguageConfiguration(tree_sitter_yaml(),        name: "YAML")
-            case "PowerShell":  return try LanguageConfiguration(tree_sitter_powershell(),  name: "Powershell")
+            case "PowerShell":  return try LanguageConfiguration(tree_sitter_powershell(),  name: "Powershell", bundleName: "SimpleText_TreeSitterPowershell")
             default:            return nil
             }
         } catch {

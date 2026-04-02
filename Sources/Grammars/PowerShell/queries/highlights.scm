@@ -28,54 +28,30 @@
 "inlinescript" @keyword
 "parallel" @keyword
 "sequence" @keyword
+"class" @keyword
+"enum" @keyword
+"hidden" @keyword
+"static" @keyword
+"in" @keyword
 
-"-as" @operator
-"-ccontains" @operator
-"-ceq" @operator
-"-cge" @operator
-"-cgt" @operator
-"-cle" @operator
-"-clike" @operator
-"-clt" @operator
-"-cmatch" @operator
-"-cne" @operator
-"-cnotcontains" @operator
-"-cnotlike" @operator
-"-cnotmatch" @operator
-"-contains" @operator
-"-creplace" @operator
-"-csplit" @operator
 "-eq" @operator
-"-ge" @operator
+"-ne" @operator
 "-gt" @operator
-"-icontains" @operator
-"-ieq" @operator
-"-ige" @operator
-"-igt" @operator
-"-ile" @operator
-"-ilike" @operator
-"-ilt" @operator
-"-imatch" @operator
-"-in" @operator
-"-ine" @operator
-"-inotcontains" @operator
-"-inotlike" @operator
-"-inotmatch" @operator
-"-ireplace" @operator
-"-is" @operator
-"-isnot" @operator
-"-isplit" @operator
-"-join" @operator
+"-ge" @operator
+"-lt" @operator
 "-le" @operator
 "-like" @operator
-"-lt" @operator
-"-match" @operator
-"-ne" @operator
-"-notcontains" @operator
-"-notin" @operator
 "-notlike" @operator
+"-match" @operator
 "-notmatch" @operator
+"-contains" @operator
+"-notcontains" @operator
+"-in" @operator
+"-notin" @operator
 "-replace" @operator
+"-is" @operator
+"-isnot" @operator
+"-as" @operator
 "-shl" @operator
 "-shr" @operator
 "-split" @operator
@@ -94,25 +70,18 @@
 ".." @operator
 "-not" @operator
 
-
-";" @delimiter
+";" @punctuation.delimiter
 
 (string_literal) @string
+(expandable_string_literal) @string
+(verbatim_string_characters) @string
 
 (integer_literal) @number
 (real_literal) @number
 
-(command
-  command_name: (command_name) @function)
+(command (command_name) @function)
 
-(function_statement
-  (function_name) @function)
-
-(invokation_expression
-  (member_name) @function)
-
-(member_access
-  (member_name) @property)
+(function_statement (function_name) @function)
 
 (command_invokation_operator) @operator
 
@@ -121,8 +90,3 @@
 (variable) @variable
 
 (comment) @comment
-
-(array_expression) @array
-
-(assignment_expression
-  value: (pipeline) @assignvalue)
