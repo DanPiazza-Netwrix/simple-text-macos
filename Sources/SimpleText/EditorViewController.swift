@@ -16,6 +16,7 @@ final class EditorViewController: NSViewController {
     var onTextChanged: (() -> Void)?
 
     private var syntaxHighlighter: SyntaxHighlighter?
+    private var highlightCoordinator: HighlightCoordinator?
     let tabUndoManager = UndoManager()
 
     /// Called when files are dropped onto the editor. TabController opens each URL in a new tab.
@@ -80,6 +81,12 @@ final class EditorViewController: NSViewController {
     @objc private func handleTextDidChange(_ notification: Notification) {
         if !documentController.isModified {
             documentController.isModified = true
+            onStateChanged?()
+        } else if (tabUndoManager.isUndoing || tabUndoManager.isRedoing),
+                  let clean = documentController.savedContent,
+                  textView.string == clean {
+            // All changes undone back to the saved state — clear the dirty flag.
+            documentController.isModified = false
             onStateChanged?()
         }
         onTextChanged?()
@@ -161,6 +168,7 @@ extension EditorViewController: DocumentControllerDelegate {
     func documentDidLoad(url: URL?, content: String) {
         // Tear down any existing highlighter before changing the text.
         syntaxHighlighter = nil
+        highlightCoordinator = nil
         textView.textStorage?.delegate = nil
 
         textView.string = content
@@ -169,13 +177,21 @@ extension EditorViewController: DocumentControllerDelegate {
         editorView.rulerView.needsDisplay = true
         onStateChanged?()
 
-        // Wire up syntax highlighting for Markdown files.
         let ext = url?.pathExtension.lowercased()
+
+        // Markdown: regex-based highlighter (handles bold/italic/links correctly).
         if ext == "md" || ext == "markdown" {
             let hl = SyntaxHighlighter(textView: textView)
             textView.textStorage?.delegate = hl
             hl.highlightAll()
             syntaxHighlighter = hl
+            return
+        }
+
+        // All other recognized extensions: Tree-sitter via Neon.
+        if let url, let langConfig = LanguageRegistry.shared.configuration(for: url) {
+            highlightCoordinator = try? HighlightCoordinator(textView: textView, languageConfig: langConfig)
+            highlightCoordinator?.observeScrollView()
         }
     }
 
