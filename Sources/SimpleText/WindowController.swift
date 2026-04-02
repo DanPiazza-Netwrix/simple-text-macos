@@ -12,7 +12,7 @@ final class WindowController: NSWindowController, NSWindowDelegate {
             backing:     .buffered,
             defer:       false
         )
-        window.title    = "Untitled — v0.0.1.76"
+        window.title    = "Untitled — v0.0.1.84"
         window.minSize  = NSSize(width: 480, height: 300)
 
         self.init(window: window)

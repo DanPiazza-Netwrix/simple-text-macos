@@ -10,7 +10,7 @@ A lightweight, native macOS plaintext editor. No rich formatting — just fast, 
 - **Line numbers** with automatic gutter width
 - **Dark / light mode toggle** (Cmd+Shift+D) — independent of system setting
 - **Remove blank lines** (Edit menu)
-- **Markdown syntax highlighting** — VS Code Dark+/Light+ color scheme, auto-detected by file extension
+- **Syntax highlighting** — VS Code Dark+/Light+ color scheme for Swift, Python, JavaScript, TypeScript, JSON, HTML, CSS, Bash, Go, Rust, Java, Ruby, YAML, PowerShell, and more; Markdown uses a dedicated regex highlighter for accurate inline rendering
 - **Native find bar** with Next / Previous / case-sensitive (Cmd+F)
 - **Undo / Redo** (Cmd+Z / Cmd+Shift+Z) — word-boundary granularity (one undo step per word), isolated per tab
 - **Session recovery** — all open tabs (unsaved or modified) persist between app launches, restoring your exact tab layout and content
@@ -65,4 +65,7 @@ Built with **Swift + AppKit**, structured for future cross-platform portability:
 | `EditorViewController.swift` | Central coordinator; owns UI subviews and handles menu actions |
 | `WindowController.swift` | Window lifecycle; hides on close (background mode) |
 | `AppDelegate.swift` | App lifecycle and programmatic menu bar construction |
-| `SyntaxHighlighter.swift` | Markdown syntax highlighting using VS Code–matched colors; uses `NSLayoutManager` temporary attributes (not undo-tracked) |
+| `SyntaxHighlighter.swift` | Markdown syntax highlighting (regex-based, VS Code–matched colors); uses `NSLayoutManager` temporary attributes (not undo-tracked) |
+| `HighlightCoordinator.swift` | Wraps Neon's `TextViewHighlighter` for Tree-sitter–based syntax highlighting of all non-Markdown languages |
+| `LanguageRegistry.swift` | Maps file extensions to lazily-loaded `LanguageConfiguration` objects (15+ languages) |
+| `HighlightTheme.swift` | Maps tree-sitter capture names to VS Code Dark+/Light+ colors |

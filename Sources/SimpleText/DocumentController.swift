@@ -11,6 +11,8 @@ final class DocumentController {
 
     var currentURL: URL?
     var isModified: Bool = false
+    /// Content at the last save or file-open. nil for new/restored docs (no clean reference).
+    private(set) var savedContent: String?
     weak var delegate: DocumentControllerDelegate?
 
     // MARK: - Public API
@@ -18,6 +20,7 @@ final class DocumentController {
     func newDocument() {
         currentURL = nil
         isModified = false
+        savedContent = nil
         delegate?.documentDidLoad(url: nil, content: "")
     }
 
@@ -25,6 +28,7 @@ final class DocumentController {
     func restore(content: String, url: URL?) {
         currentURL = url
         isModified = false
+        savedContent = nil  // no clean reference; must save explicitly to establish one
         delegate?.documentDidLoad(url: url, content: content)
         // documentDidLoad resets isModified to false; re-assert modified after.
         isModified = true
@@ -70,14 +74,16 @@ final class DocumentController {
     private func loadFile(at url: URL) {
         do {
             let content = try String(contentsOf: url, encoding: .utf8)
-            currentURL  = url
-            isModified  = false
+            currentURL   = url
+            isModified   = false
+            savedContent = content
             delegate?.documentDidLoad(url: url, content: content)
         } catch {
             // Try latin-1 fallback
             if let content = try? String(contentsOf: url, encoding: .isoLatin1) {
-                currentURL  = url
-                isModified  = false
+                currentURL   = url
+                isModified   = false
+                savedContent = content
                 delegate?.documentDidLoad(url: url, content: content)
             } else {
                 showError("Could not open file: \(error.localizedDescription)")
@@ -89,8 +95,9 @@ final class DocumentController {
         guard let content = delegate?.currentContent() else { return }
         do {
             try content.write(to: url, atomically: true, encoding: .utf8)
-            currentURL = url
-            isModified = false
+            currentURL   = url
+            isModified   = false
+            savedContent = content
             delegate?.documentDidSave(url: url)
         } catch {
             showError("Could not save file: \(error.localizedDescription)")

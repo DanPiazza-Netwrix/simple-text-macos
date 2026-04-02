@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_NAME="SimpleText"
 BUNDLE_ID="com.simpletext.app"
-VERSION="0.0.1.76"
+VERSION="0.0.1.84"
 MIN_MACOS="13.0"
 
 BUILD_DIR=".build/release"
@@ -19,6 +19,9 @@ mkdir -p "${APP_DIR}/Resources"
 
 # Copy executable
 cp "${BUILD_DIR}/${APP_NAME}" "${APP_DIR}/MacOS/${APP_NAME}"
+
+# Copy SPM resource bundles (tree-sitter grammar query files used by Neon)
+find "${BUILD_DIR}" -maxdepth 1 -name "*.bundle" -exec cp -R {} "${APP_DIR}/Resources/" \;
 
 # Copy app icon
 cp AppIcon.icns "${APP_DIR}/Resources/AppIcon.icns" 2>/dev/null || true
@@ -58,15 +61,40 @@ cat > "${APP_DIR}/Info.plist" <<PLIST
             <array>
                 <string>txt</string>
                 <string>md</string>
+                <string>markdown</string>
                 <string>swift</string>
                 <string>py</string>
+                <string>pyw</string>
                 <string>js</string>
+                <string>mjs</string>
+                <string>cjs</string>
                 <string>ts</string>
+                <string>tsx</string>
                 <string>json</string>
+                <string>jsonc</string>
+                <string>html</string>
+                <string>htm</string>
+                <string>css</string>
+                <string>sh</string>
+                <string>bash</string>
+                <string>zsh</string>
+                <string>go</string>
+                <string>rs</string>
+                <string>c</string>
+                <string>h</string>
+                <string>cpp</string>
+                <string>cc</string>
+                <string>cxx</string>
+                <string>hpp</string>
+                <string>hxx</string>
+                <string>java</string>
+                <string>rb</string>
                 <string>yaml</string>
                 <string>yml</string>
                 <string>toml</string>
-                <string>sh</string>
+                <string>ps1</string>
+                <string>psm1</string>
+                <string>psd1</string>
                 <string>log</string>
                 <string>csv</string>
             </array>
