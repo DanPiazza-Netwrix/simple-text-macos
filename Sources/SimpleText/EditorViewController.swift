@@ -177,6 +177,16 @@ extension EditorViewController: DocumentControllerDelegate {
         editorView.rulerView.needsDisplay = true
         onStateChanged?()
 
+        applyHighlighting(for: url)
+    }
+
+    /// Sets up (or replaces) the active syntax highlighter for the given URL.
+    /// Safe to call after a Save As — tears down the old highlighter first.
+    private func applyHighlighting(for url: URL?) {
+        syntaxHighlighter = nil
+        highlightCoordinator = nil
+        textView.textStorage?.delegate = nil
+
         let ext = url?.pathExtension.lowercased()
 
         // Markdown: regex-based highlighter (handles bold/italic/links correctly).
@@ -196,6 +206,10 @@ extension EditorViewController: DocumentControllerDelegate {
     }
 
     func documentDidSave(url: URL) {
+        // If we just saved a previously-untitled buffer under a new name, the extension
+        // may have changed (e.g. Untitled → test.ps1). Re-apply highlighting for the
+        // new URL without reloading content.
+        applyHighlighting(for: url)
         onStateChanged?()
     }
 

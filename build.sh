@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_NAME="SimpleText"
 BUNDLE_ID="com.simpletext.app"
-VERSION="0.0.1.85"
+VERSION="0.0.1.89"
 MIN_MACOS="13.0"
 
 BUILD_DIR=".build/release"
@@ -21,7 +21,7 @@ mkdir -p "${APP_DIR}/Resources"
 cp "${BUILD_DIR}/${APP_NAME}" "${APP_DIR}/MacOS/${APP_NAME}"
 
 # Copy SPM resource bundles (tree-sitter grammar query files used by Neon)
-find "${BUILD_DIR}" -maxdepth 1 -name "*.bundle" -exec cp -R {} "${APP_DIR}/Resources/" \;
+find -L "${BUILD_DIR}" -maxdepth 1 -name "*.bundle" -exec cp -R {} "${APP_DIR}/Resources/" \;
 
 # Copy app icon
 cp AppIcon.icns "${APP_DIR}/Resources/AppIcon.icns" 2>/dev/null || true
