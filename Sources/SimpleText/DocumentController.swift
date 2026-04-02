@@ -58,8 +58,8 @@ final class DocumentController {
 
     func saveDocumentAs(completion: (() -> Void)? = nil) {
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.plainText]
-        panel.nameFieldStringValue = currentURL?.lastPathComponent ?? "Untitled.txt"
+        panel.allowedContentTypes   = []   // no restriction — let the user type any extension
+        panel.nameFieldStringValue  = currentURL?.lastPathComponent ?? "Untitled.txt"
         guard let w = NSApp.keyWindow ?? NSApp.mainWindow else { return }
         panel.beginSheetModal(for: w) { [weak self] resp in
             guard resp == .OK, let url = panel.url, let self else { return }
