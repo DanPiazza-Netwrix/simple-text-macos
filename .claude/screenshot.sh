@@ -2,9 +2,9 @@
 # Captures the SimpleText window into docs/screenshot.png.
 # Must be run from the repo root with SimpleText already open.
 #
-# SimpleText has no AppleScript scripting dictionary, so we can't use
-# `tell app "SimpleText" to id of window 1`. Instead: activate the app,
-# get window geometry via System Events, then use screencapture -R.
+# Uses `screencapture -l <CGWindowID>` which composites the window correctly,
+# preserving rounded corners and the drop shadow. The CGWindowID is obtained
+# via Python/Quartz since SimpleText has no AppleScript scripting dictionary.
 
 set -euo pipefail
 
@@ -15,18 +15,21 @@ cd "$REPO_ROOT"
 osascript -e 'tell application "SimpleText" to activate'
 sleep 1
 
-# Get window position and size via System Events
-WIN=$(osascript -e '
-tell application "System Events"
-  tell process "SimpleText"
-    tell window 1
-      set p to position
-      set s to size
-      return "" & (item 1 of p) & "," & (item 2 of p) & "," & (item 1 of s) & "," & (item 2 of s)
-    end tell
-  end tell
-end tell')
+# Get the CGWindowID via Quartz — works for any app regardless of AppleScript support
+WIN_ID=$(python3 -c "
+import Quartz
+wins = Quartz.CGWindowListCopyWindowInfo(
+    Quartz.kCGWindowListOptionOnScreenOnly, Quartz.kCGNullWindowID)
+for w in wins:
+    if w.get('kCGWindowOwnerName') == 'SimpleText' and w.get('kCGWindowLayer') == 0:
+        print(w['kCGWindowNumber'])
+        break
+")
 
-IFS=',' read -r X Y W H <<< "$WIN"
-screencapture -R "${X},${Y},${W},${H}" docs/screenshot.png
+if [ -z "$WIN_ID" ]; then
+  echo "ERROR: SimpleText window not found — is the app running and visible?" >&2
+  exit 1
+fi
+
+screencapture -l "$WIN_ID" docs/screenshot.png
 echo "Screenshot saved to docs/screenshot.png"
