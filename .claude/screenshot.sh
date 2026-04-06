@@ -31,5 +31,16 @@ if [ -z "$WIN_ID" ]; then
   exit 1
 fi
 
-screencapture -l "$WIN_ID" docs/screenshot.png
+screencapture -o -l "$WIN_ID" docs/screenshot.png
+
+# Flatten transparent pixels (rounded window corners) against a solid background.
+# Uses the app's own dark background color so corners are invisible in the result.
+python3 - <<'PYEOF'
+from PIL import Image
+img = Image.open("docs/screenshot.png").convert("RGBA")
+bg = Image.new("RGBA", img.size, (30, 30, 30, 255))
+bg.paste(img, mask=img.split()[3])
+bg.convert("RGB").save("docs/screenshot.png", "PNG")
+PYEOF
+
 echo "Screenshot saved to docs/screenshot.png"
