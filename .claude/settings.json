@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash {{REPO_ROOT}}/.claude/auto-build.sh"
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/auto-build.sh\""
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash {{REPO_ROOT}}/.claude/enforce-docs.sh"
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/enforce-docs.sh\""
           }
         ]
       }
