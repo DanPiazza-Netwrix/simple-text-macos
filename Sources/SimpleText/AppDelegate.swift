@@ -108,6 +108,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         saveAs.keyEquivalentModifierMask = [.command, .shift]
         fileMenu.addItem(saveAs)
         fileMenu.addItem(.separator())
+        fileMenu.addItem(item("Print…",    action: Selector(("print:")),                               key: "p"))
+        fileMenu.addItem(.separator())
         fileMenu.addItem(item("Close Tab", action: #selector(TabController.closeTab(_:)),             key: "w"))
 
         // ── Edit menu ─────────────────────────────────────────────────────
@@ -137,6 +139,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let darkToggle = item("Use Dark Mode", action: #selector(EditorViewController.toggleDarkMode(_:)), key: "d")
         darkToggle.keyEquivalentModifierMask = [.command, .shift]
         viewMenu.addItem(darkToggle)
+        viewMenu.addItem(.separator())
+        viewMenu.addItem(item("Zoom In",    action: #selector(EditorViewController.zoomIn(_:)),    key: "="))
+        viewMenu.addItem(item("Zoom Out",   action: #selector(EditorViewController.zoomOut(_:)),   key: "-"))
+        viewMenu.addItem(item("Reset Zoom", action: #selector(EditorViewController.resetZoom(_:)), key: "0"))
 
         // ── Find menu ─────────────────────────────────────────────────────
         let findItem = NSMenuItem()

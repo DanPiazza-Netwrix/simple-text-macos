@@ -1,4 +1,7 @@
 import Foundation
+import OSLog
+
+private let logger = Logger(subsystem: "com.simpletext.app", category: "RecoveryBuffer")
 
 // MARK: - Session types
 
@@ -36,7 +39,7 @@ enum RecoveryBuffer {
                 at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try JSONEncoder().encode(session).write(to: url, options: .atomic)
         } catch {
-            print("RecoveryBuffer: save failed: \(error)")
+            logger.error("Session save failed: \(error)")
         }
     }
 

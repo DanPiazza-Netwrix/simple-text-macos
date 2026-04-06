@@ -35,11 +35,47 @@ final class EditorTextView: NSTextView {
     }
 }
 
+final class StatusBarView: NSView {
+
+    let label: NSTextField = {
+        let f = NSTextField(labelWithString: "Line 1, Col 1  |  0 words  0 chars")
+        f.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        f.textColor = .secondaryLabelColor
+        f.alignment = .right
+        f.translatesAutoresizingMaskIntoConstraints = false
+        return f
+    }()
+
+    private let separator: NSBox = {
+        let b = NSBox()
+        b.boxType = .separator
+        b.translatesAutoresizingMaskIntoConstraints = false
+        return b
+    }()
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        addSubview(separator)
+        addSubview(label)
+        NSLayoutConstraint.activate([
+            separator.leadingAnchor.constraint(equalTo: leadingAnchor),
+            separator.trailingAnchor.constraint(equalTo: trailingAnchor),
+            separator.topAnchor.constraint(equalTo: topAnchor),
+
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+}
+
 final class EditorView: NSView {
 
-    let scrollView: NSScrollView = NSScrollView()
-    let textView:   NSTextView   = EditorTextView()
-    let rulerView   = LineNumberRulerView()
+    let scrollView:  NSScrollView = NSScrollView()
+    let textView:    NSTextView   = EditorTextView()
+    let rulerView    = LineNumberRulerView()
+    let statusBar    = StatusBarView()
 
     var onFilesDropped: (([URL]) -> Void)? {
         didSet { (textView as? EditorTextView)?.onFilesDropped = onFilesDropped }
@@ -52,6 +88,10 @@ final class EditorView: NSView {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    func updateStatus(line: Int, col: Int, words: Int, chars: Int) {
+        statusBar.label.stringValue = "Line \(line), Col \(col)  |  \(words) words  \(chars) chars"
+    }
+
     // MARK: - Setup
 
     private func setup() {
@@ -62,25 +102,34 @@ final class EditorView: NSView {
         // so no built-in separator or divider lines are drawn.
         addSubview(rulerView)
         addSubview(scrollView)
+        addSubview(statusBar)
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        statusBar.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             rulerView.leadingAnchor.constraint(equalTo: leadingAnchor),
             rulerView.topAnchor.constraint(equalTo: topAnchor),
-            rulerView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            rulerView.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
 
             scrollView.leadingAnchor.constraint(equalTo: rulerView.trailingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+
+            statusBar.leadingAnchor.constraint(equalTo: leadingAnchor),
+            statusBar.trailingAnchor.constraint(equalTo: trailingAnchor),
+            statusBar.bottomAnchor.constraint(equalTo: bottomAnchor),
+            statusBar.heightAnchor.constraint(equalToConstant: 22),
         ])
 
         rulerView.textView = textView
     }
 
     private func setupTextView() {
-        let font = NSFont(name: "Monaco", size: 12)
-               ?? NSFont(name: "Menlo", size: 13)
-               ?? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        let savedSize = UserDefaults.standard.double(forKey: "fontSize")
+        let fontSize: CGFloat = savedSize > 0 ? savedSize : 12
+        let font = NSFont(name: "Monaco", size: fontSize)
+               ?? NSFont(name: "Menlo", size: fontSize)
+               ?? NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
 
         textView.font                              = font
         textView.isRichText                        = false
