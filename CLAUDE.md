@@ -6,29 +6,13 @@ Default font is **Monaco 12pt** (same as TextEdit), with fallback to Menlo 13pt 
 
 ## Taking the README screenshot
 
-The app must already be running and visible. Use this exact sequence:
+Use the `/screenshot` slash command, or run manually:
 
 ```bash
-osascript -e 'tell application "SimpleText" to activate' && sleep 1
-WIN=$(osascript -e '
-tell application "System Events"
-  tell process "SimpleText"
-    tell window 1
-      set p to position
-      set s to size
-      return "" & (item 1 of p) & "," & (item 2 of p) & "," & (item 1 of s) & "," & (item 2 of s)
-    end tell
-  end tell
-end tell')
-IFS=',' read -r X Y W H <<< "$WIN"
-screencapture -R "${X},${Y},${W},${H}" docs/screenshot.png
+bash .claude/screenshot.sh
 ```
 
-**Why this approach:**
-- `SimpleText` has no scripting dictionary, so `tell app "SimpleText" to id of window 1` fails. Use `System Events` to get window geometry instead.
-- `screencapture -l <windowID>` also fails for the same reason — use `-R x,y,w,h` with coordinates from System Events.
-- `activate` + `sleep 1` is required — without it the terminal stays on top and gets captured instead.
-- Run from the repo root so the output path `docs/screenshot.png` resolves correctly.
+The script and the reasoning behind it are in `.claude/screenshot.sh`.
 
 ## Build & Run
 
