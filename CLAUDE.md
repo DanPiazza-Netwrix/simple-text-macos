@@ -28,13 +28,14 @@ Always build with `./build.sh` when the user asks to test or verify — this pro
 
 **IMPORTANT:** NEVER run `git commit` or `git push` (or any destructive git operation) without explicit user confirmation first. Always show the user what you plan to commit/push and wait for approval. A prior "commit and push" in one message does NOT grant standing permission for future operations.
 
-**Version bumping:** Use semantic versioning with a fourth digit for dev builds: `MAJOR.MINOR.PATCH.DEV`
-- Each rebuild **automatically** increments the DEV digit via `.claude/bump-version.sh` (PreToolUse hook on `./build.sh`)
-- Only the user changes MAJOR/MINOR/PATCH
-- If unsure about what version to build, ask the user first
-- Version is kept in sync across: `build.sh` (VERSION variable), `CLAUDE.md` (this file). The status bar reads the version at runtime from `Bundle.main` (`CFBundleShortVersionString`), so no Swift files need updating on a version bump. `WindowController.swift` and `TabController.swift` no longer embed the version string in the window title.
+**Version bumping:** Use standard semantic versioning: `MAJOR.MINOR.PATCH`
+- **Never auto-increment** — only bump intentionally before a release
+- Patch for bug fixes, minor for new features, major for breaking changes
+- To bump the patch version: `bash .claude/bump-version.sh`
+- To bump minor or major: manually edit `VERSION` in `build.sh` and update "Current version" below
+- Version is kept in sync across: `build.sh` (VERSION variable), `CLAUDE.md` (this file). The status bar reads the version at runtime from `Bundle.main` (`CFBundleShortVersionString`), so no Swift files need updating on a version bump.
 - Always report the built version in output so user can confirm in Claude Code
-- Current version: 0.0.1.94
+- Current version: 1.0.0
 
 ## Architecture
 

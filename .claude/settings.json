@@ -1,16 +1,5 @@
 {
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cmd=$(jq -r '.tool_input.command // empty') && if echo \"$cmd\" | grep -q \"./build.sh\"; then bash {{REPO_ROOT}}/.claude/bump-version.sh; else echo '{}'; fi || true"
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
         "matcher": "Edit",
