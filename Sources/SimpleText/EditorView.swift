@@ -37,6 +37,15 @@ final class EditorTextView: NSTextView {
 
 final class StatusBarView: NSView {
 
+    let versionLabel: NSTextField = {
+        let f = NSTextField(labelWithString: "")
+        f.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        f.textColor = .secondaryLabelColor
+        f.alignment = .left
+        f.translatesAutoresizingMaskIntoConstraints = false
+        return f
+    }()
+
     let label: NSTextField = {
         let f = NSTextField(labelWithString: "Line 1, Col 1  |  0 words  0 chars")
         f.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
@@ -55,12 +64,20 @@ final class StatusBarView: NSView {
 
     override init(frame: NSRect) {
         super.init(frame: frame)
+        if let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+            versionLabel.stringValue = "v\(v)"
+        }
         addSubview(separator)
+        addSubview(versionLabel)
         addSubview(label)
         NSLayoutConstraint.activate([
             separator.leadingAnchor.constraint(equalTo: leadingAnchor),
             separator.trailingAnchor.constraint(equalTo: trailingAnchor),
             separator.topAnchor.constraint(equalTo: topAnchor),
+
+            versionLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            versionLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            versionLabel.trailingAnchor.constraint(lessThanOrEqualTo: label.leadingAnchor, constant: -8),
 
             label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),

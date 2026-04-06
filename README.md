@@ -13,7 +13,7 @@ A lightweight, native macOS plaintext editor. No rich formatting — just fast, 
 - **Syntax highlighting** — VS Code Dark+/Light+ color scheme for Swift, Python, JavaScript, TypeScript, JSON, HTML, CSS, Bash, Go, Rust, Java, Ruby, YAML, PowerShell, and more; Markdown uses a dedicated regex highlighter for accurate inline rendering
 - **Native find bar** with Next / Previous / case-sensitive / Replace (Cmd+F)
 - **Font size zoom** (Cmd+= / Cmd+-) — persists across launches
-- **Status bar** — live line, column, word count, and character count
+- **Status bar** — version number (bottom-left), live line/column/word/character count (bottom-right)
 - **Print** (Cmd+P)
 - **Undo / Redo** — word-boundary granularity (one undo step per word), isolated per tab
 - **Session recovery** — all open tabs (unsaved or modified) persist between app launches, restoring your exact tab layout and content
