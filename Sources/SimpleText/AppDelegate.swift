@@ -110,7 +110,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fileMenu.addItem(.separator())
         fileMenu.addItem(item("Print…",    action: Selector(("print:")),                               key: "p"))
         fileMenu.addItem(.separator())
-        fileMenu.addItem(item("Close Tab", action: #selector(TabController.closeTab(_:)),             key: "w"))
+        fileMenu.addItem(item("Close Tab",      action: #selector(TabController.closeTab(_:)),        key: "w"))
+        fileMenu.addItem(item("Close All Tabs", action: #selector(TabController.closeAllTabs(_:)),   key: ""))
 
         // ── Edit menu ─────────────────────────────────────────────────────
         let editItem = NSMenuItem()

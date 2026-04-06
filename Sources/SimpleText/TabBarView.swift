@@ -7,6 +7,7 @@ protocol TabBarDelegate: AnyObject {
     func tabBar(_ bar: TabBarView, didCloseTabAt index: Int)
     func tabBar(_ bar: TabBarView, didCloseTabsToRightOf index: Int)
     func tabBar(_ bar: TabBarView, didCloseOtherTabsThan index: Int)
+    func tabBarDidCloseAllTabs(_ bar: TabBarView)
     func tabBar(_ bar: TabBarView, didMoveTabFrom fromIndex: Int, to toIndex: Int)
 }
 
@@ -49,6 +50,7 @@ final class TabBarView: NSView {
             if i < titles.count - 1 {
                 btn.onCloseToRight = { [weak self] in guard let s = self else { return }; s.delegate?.tabBar(s, didCloseTabsToRightOf: idx) }
             }
+            btn.onCloseAll    = { [weak self] in guard let s = self else { return }; s.delegate?.tabBarDidCloseAllTabs(s) }
             btn.onDragStarted = { [weak self] in self?.beginDrag(from: idx) }
             btn.onDragged     = { [weak self] x in self?.moveDrag(to: x) }
             btn.onDragEnded   = { [weak self] in self?.endDrag() }
@@ -159,6 +161,7 @@ final class TabButton: NSView {
     var onClose:        (() -> Void)?
     var onCloseToRight: (() -> Void)?
     var onCloseOthers:  (() -> Void)?
+    var onCloseAll:     (() -> Void)?
     var onDragStarted:  (() -> Void)?
     var onDragged:      ((_ mouseX: CGFloat) -> Void)?
     var onDragEnded:    (() -> Void)?
@@ -294,11 +297,20 @@ final class TabButton: NSView {
                                       keyEquivalent: "")
         othersItem.target = self
         othersItem.isEnabled = onCloseOthers != nil
+
+        menu.addItem(.separator())
+
+        let allItem = menu.addItem(withTitle: "Close All Tabs",
+                                   action: #selector(handleCloseAll),
+                                   keyEquivalent: "")
+        allItem.target = self
+        allItem.isEnabled = true
         return menu
     }
 
     @objc private func handleCloseToRight() { onCloseToRight?() }
     @objc private func handleCloseOthers()  { onCloseOthers?() }
+    @objc private func handleCloseAll()     { onCloseAll?() }
 
     // MARK: - Drawing
 
