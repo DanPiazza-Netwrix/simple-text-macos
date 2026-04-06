@@ -6,25 +6,68 @@ A lightweight, native macOS plaintext editor. No rich formatting — just fast, 
 
 ## Features
 
-- **Tabs** — Cmd+T new tab, Cmd+W close tab; drag to reorder; right-click for "Close Tabs to the Right" / "Close Other Tabs"; closing the last tab opens a fresh blank tab (window stays open); unsaved tabs restored on relaunch; save prompt on close (including "Close Tabs to the Right" / "Close Other Tabs") for modified named files and untitled buffers with content
+- **Tabs** — Cmd+T new tab, Cmd+W close tab; drag to reorder; right-click for "Close Tabs to the Right" / "Close Other Tabs"; closing the last tab opens a fresh blank tab (window stays open)
 - **Line numbers** with automatic gutter width
 - **Dark / light mode toggle** (Cmd+Shift+D) — independent of system setting
 - **Remove blank lines** (Edit menu)
 - **Syntax highlighting** — VS Code Dark+/Light+ color scheme for Swift, Python, JavaScript, TypeScript, JSON, HTML, CSS, Bash, Go, Rust, Java, Ruby, YAML, PowerShell, and more; Markdown uses a dedicated regex highlighter for accurate inline rendering
-- **Native find bar** with Next / Previous / case-sensitive (Cmd+F)
-- **Undo / Redo** (Cmd+Z / Cmd+Shift+Z) — word-boundary granularity (one undo step per word), isolated per tab
+- **Native find bar** with Next / Previous / case-sensitive / Replace (Cmd+F)
+- **Font size zoom** (Cmd+= / Cmd+-) — persists across launches
+- **Status bar** — live line, column, word count, and character count
+- **Print** (Cmd+P)
+- **Undo / Redo** — word-boundary granularity (one undo step per word), isolated per tab
 - **Session recovery** — all open tabs (unsaved or modified) persist between app launches, restoring your exact tab layout and content
 - **Window position & size memory** — remembers your window layout on relaunch
 - **Background mode** — closing the window hides the app instead of quitting
 - Opens files via command-line arguments, Finder (double-click / "Open With…"), drag onto Dock icon, or drag-and-drop directly into the app window
-- Custom app icon
+
+## Keyboard Shortcuts
+
+| Action | Shortcut |
+|--------|----------|
+| New Tab | Cmd+T |
+| Open… | Cmd+O |
+| Save | Cmd+S |
+| Save As… | Cmd+Shift+S |
+| Close Tab | Cmd+W |
+| Undo | Cmd+Z |
+| Redo | Cmd+Shift+Z |
+| Cut | Cmd+X |
+| Copy | Cmd+C |
+| Paste | Cmd+V |
+| Select All | Cmd+A |
+| Find… | Cmd+F |
+| Find Next | Cmd+G |
+| Find Previous | Cmd+Shift+G |
+| Toggle Dark Mode | Cmd+Shift+D |
+| Zoom In | Cmd+= |
+| Zoom Out | Cmd+- |
+| Reset Zoom | Cmd+0 |
+| Print… | Cmd+P |
+| Quit | Cmd+Q |
+
+## Usage Notes
+
+**Background mode:** Clicking the red X hides the window — the app keeps running in the Dock. To fully quit, use Cmd+Q or SimpleText → Quit SimpleText.
+
+**Session recovery:** All tabs (saved and unsaved) are automatically persisted to `~/Library/Application Support/SimpleText/session.json` and restored on next launch. The selected tab index is also restored. Use Edit → "Clear Unsaved Buffer" to wipe the recovery state if needed.
+
+**Save prompts:** When closing a tab (Cmd+W) or using "Close Tabs to the Right" / "Close Other Tabs", you'll be prompted to save if the tab has a named file with unsaved changes, or if an untitled tab has content. Empty or clean tabs close without a prompt. Cmd+Q prompts for all unsaved named files before quitting.
+
+**Undo:** Each tab has its own isolated undo stack. Undo steps at word boundaries — each word is a single undo step, matching TextEdit behavior.
+
+## Installation
+
+1. [Build the app](#building-from-source) or download a release
+2. Drag `SimpleText.app` to `/Applications`
+3. Launch from Finder or Spotlight
 
 ## Requirements
 
 - macOS 13+
-- Xcode Command Line Tools (`xcode-select --install`)
+- Xcode Command Line Tools (`xcode-select --install`) — for building from source only
 
-## Build
+## Building from Source
 
 ### Run directly (development)
 
