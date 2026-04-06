@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_NAME="SimpleText"
 BUNDLE_ID="com.simpletext.app"
-VERSION="0.0.1.89"
+VERSION="0.0.1.90"
 MIN_MACOS="13.0"
 
 BUILD_DIR=".build/release"
@@ -24,7 +24,11 @@ cp "${BUILD_DIR}/${APP_NAME}" "${APP_DIR}/MacOS/${APP_NAME}"
 find -L "${BUILD_DIR}" -maxdepth 1 -name "*.bundle" -exec cp -R {} "${APP_DIR}/Resources/" \;
 
 # Copy app icon
-cp AppIcon.icns "${APP_DIR}/Resources/AppIcon.icns" 2>/dev/null || true
+if [ -f AppIcon.icns ]; then
+    cp AppIcon.icns "${APP_DIR}/Resources/AppIcon.icns"
+else
+    echo "WARNING: AppIcon.icns not found — app will build without an icon" >&2
+fi
 
 # Write Info.plist
 cat > "${APP_DIR}/Info.plist" <<PLIST

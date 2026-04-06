@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-PROJECT_DIR="/Users/daniel.piazza/Source/simple_text"
-cd "$PROJECT_DIR"
+REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+cd "$REPO_ROOT"
 
 # Extract current version from build.sh
 current=$(grep '^VERSION=' build.sh | cut -d'"' -f2)
