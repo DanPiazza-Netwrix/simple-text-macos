@@ -91,11 +91,12 @@ final class EditorViewController: NSViewController {
         }
         onTextChanged?()
         editorView.rulerView.needsDisplay = true
+        updateStatusBar()
     }
 
     @objc private func selectionDidChange(_ notification: Notification) {
-        // Redraw line numbers when cursor moves (to show new line number immediately)
         editorView.rulerView.needsDisplay = true
+        updateStatusBar()
     }
 
     // MARK: - Menu actions (via responder chain, target: nil in menu setup)
@@ -124,6 +125,36 @@ final class EditorViewController: NSViewController {
 
     @objc func clearRecoveryBuffer(_ sender: Any?) {
         documentController.clearRecoveryBuffer()
+    }
+
+    @objc func zoomIn(_ sender: Any?)    { adjustFontSize(by:  1) }
+    @objc func zoomOut(_ sender: Any?)   { adjustFontSize(by: -1) }
+    @objc func resetZoom(_ sender: Any?) { setFontSize(12) }
+
+    private func adjustFontSize(by delta: CGFloat) {
+        let current = textView.font?.pointSize ?? 12
+        setFontSize(max(8, min(72, current + delta)))
+    }
+
+    private func setFontSize(_ size: CGFloat) {
+        let font = NSFont(name: "Monaco", size: size)
+               ?? NSFont(name: "Menlo", size: size)
+               ?? NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
+        textView.font = font
+        UserDefaults.standard.set(size, forKey: "fontSize")
+        editorView.rulerView.needsDisplay = true
+    }
+
+    private func updateStatusBar() {
+        let string = textView.string as NSString
+        let loc    = min(textView.selectedRange().location, string.length)
+        let lineStart = string.lineRange(for: NSRange(location: loc, length: 0)).location
+        let col  = loc - lineStart + 1
+        let line = (string.substring(to: loc) as String)
+                       .components(separatedBy: "\n").count
+        let words = textView.string.split { $0.isWhitespace }.filter { !$0.isEmpty }.count
+        let chars = textView.string.count
+        editorView.updateStatus(line: line, col: col, words: words, chars: chars)
     }
 
 // MARK: - Validate menu items (NSMenuItemValidation)
@@ -175,6 +206,7 @@ extension EditorViewController: DocumentControllerDelegate {
         tabUndoManager.removeAllActions()
         documentController.isModified = false
         editorView.rulerView.needsDisplay = true
+        updateStatusBar()
         onStateChanged?()
 
         applyHighlighting(for: url)
