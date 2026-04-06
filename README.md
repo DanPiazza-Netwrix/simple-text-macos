@@ -58,9 +58,11 @@ A lightweight, native macOS plaintext editor. No rich formatting — just fast, 
 
 ## Installation
 
-1. [Build the app](#building-from-source) or download a release
-2. Drag `SimpleText.app` to `/Applications`
+1. Download `SimpleText.app.zip` from the [latest release](../../releases/latest), or [build from source](#building-from-source)
+2. Unzip and drag `SimpleText.app` to `/Applications`
 3. Launch from Finder or Spotlight
+
+> **Note:** Because SimpleText is not notarized, macOS may show "cannot be opened because it is from an unidentified developer." Right-click (or Ctrl-click) the app and choose **Open** to bypass this once.
 
 ## Requirements
 
