@@ -21,8 +21,6 @@ next="${major}.${minor}.${patch}.${dev}"
 
 # Update all files
 sed -i '' "s/VERSION=\"[^\"]*\"/VERSION=\"$next\"/" build.sh
-sed -i '' "s/v${major}\.${minor}\.${patch}\.[0-9]*/v$next/" Sources/SimpleText/WindowController.swift
-sed -i '' "s/v${major}\.${minor}\.${patch}\.[0-9]*/v$next/" Sources/SimpleText/TabController.swift
 sed -i '' "s/- Current version: ${major}\.${minor}\.${patch}\.[0-9]*/- Current version: $next/" CLAUDE.md
 
 echo "{\"systemMessage\":\"✓ Version bumped: $current → $next\"}"
