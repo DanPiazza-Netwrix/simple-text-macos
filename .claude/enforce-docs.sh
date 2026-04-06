@@ -4,7 +4,8 @@
 # current working-tree state — including any edits that reverted changes
 # (undos), which drop out of the diff automatically.
 
-cd /Users/daniel.piazza/Source/simple_text 2>/dev/null || exit 0
+REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel 2>/dev/null) || exit 0
+cd "$REPO_ROOT"
 
 # All files modified vs HEAD (staged + unstaged)
 modified=$(git diff --name-only HEAD 2>/dev/null || true)
