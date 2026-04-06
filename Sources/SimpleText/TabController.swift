@@ -97,6 +97,16 @@ final class TabController: NSViewController {
         confirmAndClose(vc: vc) { [weak self] in self?.performCloseCurrentTab() }
     }
 
+    @objc func closeAllTabs(_ sender: Any? = nil) {
+        guard editorVCs.count > 1 else { closeTab(nil); return }
+        // Close all but the last (prompting for each dirty tab), then close the
+        // last one via closeTab which handles the replace-with-blank case.
+        let all = Array(editorVCs)
+        confirmAndCloseMultiple(vcs: Array(all.dropLast())) { [weak self] in
+            self?.closeTab(nil)
+        }
+    }
+
     private func performCloseCurrentTab() {
         guard editorVCs.count > 1 else {
             replaceLastTabWithBlank()
@@ -168,16 +178,16 @@ final class TabController: NSViewController {
 
     /// Processes `vcs` one at a time: prompts for dirty tabs, closes each tab immediately
     /// after its prompt is resolved, then moves on to the next. Cancelling any prompt
-    /// aborts the rest of the batch.
-    private func confirmAndCloseMultiple(vcs: [EditorViewController]) {
-        guard !vcs.isEmpty else { return }
+    /// aborts the rest of the batch. `completion` is called only if all tabs are closed.
+    private func confirmAndCloseMultiple(vcs: [EditorViewController], completion: (() -> Void)? = nil) {
+        guard !vcs.isEmpty else { completion?(); return }
         var rest = vcs
         let vc = rest.removeFirst()
 
         let closeAndContinue = { [weak self] in
             guard let self else { return }
             if let idx = self.editorVCs.firstIndex(of: vc) { self.closeVC(at: idx) }
-            self.confirmAndCloseMultiple(vcs: rest)
+            self.confirmAndCloseMultiple(vcs: rest, completion: completion)
         }
 
         if needsPrompt(vc) {
@@ -349,6 +359,10 @@ extension TabController: TabBarDelegate {
         guard editorVCs.count > 1 else { return }
         let keep = editorVCs[index]
         confirmAndCloseMultiple(vcs: editorVCs.filter { $0 !== keep })
+    }
+
+    func tabBarDidCloseAllTabs(_ bar: TabBarView) {
+        closeAllTabs(nil)
     }
 
     func tabBar(_ bar: TabBarView, didMoveTabFrom fromIndex: Int, to toIndex: Int) {
