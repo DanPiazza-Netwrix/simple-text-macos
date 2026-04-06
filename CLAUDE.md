@@ -28,12 +28,12 @@ Always build with `./build.sh` when the user asks to test or verify — this pro
 
 **IMPORTANT:** NEVER run `git commit` or `git push` (or any destructive git operation) without explicit user confirmation first. Always show the user what you plan to commit/push and wait for approval. A prior "commit and push" in one message does NOT grant standing permission for future operations.
 
-**Version bumping:** Use standard semantic versioning: `MAJOR.MINOR.PATCH`
-- **Never auto-increment** — only bump intentionally before a release
-- Patch for bug fixes, minor for new features, major for breaking changes
-- To bump the patch version: `bash .claude/bump-version.sh`
-- To bump minor or major: manually edit `VERSION` in `build.sh` and update "Current version" below
-- Version is kept in sync across: `build.sh` (VERSION variable), `CLAUDE.md` (this file). The status bar reads the version at runtime from `Bundle.main` (`CFBundleShortVersionString`), so no Swift files need updating on a version bump.
+**Version scheme — hybrid local/release:**
+- **Local builds:** `MAJOR.MINOR.PATCH.DEV` (e.g. `1.0.0.4`). The fourth digit is auto-incremented by `.claude/local-build-counter.sh` which is called at the top of `build.sh` on every invocation. This lets you see exactly which local iteration is running.
+- **GitHub releases:** Clean `MAJOR.MINOR.PATCH` (e.g. `1.0.1`). Use the `/release` slash command to strip the dev digit, choose the target semver, build, tag, and publish.
+- Version is kept in sync across: `build.sh` (VERSION variable), `CLAUDE.md` (this file). The status bar reads version at runtime from `Bundle.main` (`CFBundleShortVersionString`) — no Swift files need updating.
+- To manually bump just the patch (without releasing): `bash .claude/bump-version.sh`
+- To release to GitHub: `/release`
 - Always report the built version in output so user can confirm in Claude Code
 - Current version: 1.0.0
 
