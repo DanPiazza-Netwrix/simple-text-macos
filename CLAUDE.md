@@ -35,7 +35,7 @@ Always build with `./build.sh` when the user asks to test or verify — this pro
 - To manually bump just the patch (without releasing): `bash .claude/bump-version.sh`
 - To release to GitHub: `/release`
 - Always report the built version in output so user can confirm in Claude Code
-- Current version: 1.0.0
+- Current version: 1.0.1
 
 ## Architecture
 

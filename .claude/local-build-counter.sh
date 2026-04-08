@@ -7,7 +7,7 @@ set -e
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 cd "$REPO_ROOT"
 
-current=$(grep '^VERSION=' build.sh | cut -d'"' -f2)
+current=$(grep '^VERSION=' build.sh | head -1 | cut -d'"' -f2)
 
 IFS='.' read -r major minor patch dev <<< "$current"
 

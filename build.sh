@@ -3,6 +3,7 @@ set -euo pipefail
 
 APP_NAME="SimpleText"
 BUNDLE_ID="com.simpletext.app"
+VERSION="1.0.1"
 
 # Increment local dev digit before each build (1.0.0 → 1.0.0.1 → 1.0.0.2 …)
 # Strips automatically when /release command is used.
@@ -11,8 +12,8 @@ if [ -f "$SCRIPT_DIR/.claude/local-build-counter.sh" ]; then
     bash "$SCRIPT_DIR/.claude/local-build-counter.sh"
 fi
 
-# Re-read VERSION after the counter may have updated it
-VERSION=$(grep '^VERSION=' "$SCRIPT_DIR/build.sh" | cut -d'"' -f2)
+# Re-read VERSION after the counter may have updated it (match only the quoted line, not this one)
+VERSION=$(grep '^VERSION=' "$SCRIPT_DIR/build.sh" | head -1 | cut -d'"' -f2)
 MIN_MACOS="13.0"
 
 BUILD_DIR=".build/release"
