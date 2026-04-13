@@ -65,7 +65,11 @@ A lightweight, native macOS plaintext editor. No rich formatting — just fast, 
 2. Unzip and drag `SimpleText.app` to `/Applications`
 3. Launch from Finder or Spotlight
 
-> **Note:** Because SimpleText is not notarized, macOS may show "cannot be opened because it is from an unidentified developer." Right-click (or Ctrl-click) the app and choose **Open** to bypass this once.
+> **Note:** Because SimpleText is not notarized, macOS Gatekeeper may block the app. If you see "damaged and can't be opened" or "unidentified developer", run this in Terminal after unzipping:
+> ```bash
+> xattr -cr /path/to/SimpleText.app
+> ```
+> Then launch normally.
 
 ## Requirements
 
