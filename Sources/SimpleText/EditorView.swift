@@ -33,6 +33,67 @@ final class EditorTextView: NSTextView {
         (sender.draggingPasteboard.readObjects(forClasses: [NSURL.self],
          options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
     }
+
+    // MARK: - Bulk indent / dedent
+
+    override func keyDown(with event: NSEvent) {
+        let isTab   = event.keyCode == 48  // kVK_Tab
+        let isShift = event.modifierFlags.contains(.shift)
+
+        if isTab && isShift {
+            dedentSelectedLines()
+            return
+        }
+
+        if isTab {
+            let sel = selectedRange()
+            if sel.length > 0 && (string as NSString).substring(with: sel).contains("\n") {
+                indentSelectedLines()
+                return
+            }
+        }
+
+        super.keyDown(with: event)
+    }
+
+    private func indentSelectedLines() {
+        let sel      = selectedRange()
+        let nsStr    = string as NSString
+        let lineRange = nsStr.lineRange(for: sel)
+        let linesText = nsStr.substring(with: lineRange)
+        let lines     = linesText.components(separatedBy: "\n")
+        let newText   = lines.enumerated().map { i, line in
+            // Don't indent the empty sentinel after a trailing newline.
+            (i == lines.count - 1 && line.isEmpty) ? line : "\t" + line
+        }.joined(separator: "\n")
+        insertText(newText, replacementRange: lineRange)
+        undoManager?.setActionName("Indent")
+        setSelectedRange(NSRange(location: lineRange.location,
+                                 length: (newText as NSString).length))
+    }
+
+    private func dedentSelectedLines() {
+        let sel       = selectedRange()
+        let nsStr     = string as NSString
+        let lineRange = nsStr.lineRange(for: sel)
+        let linesText = nsStr.substring(with: lineRange)
+        let lines     = linesText.components(separatedBy: "\n")
+        let newLines  = lines.enumerated().map { i, line -> String in
+            // Don't touch the empty sentinel after a trailing newline.
+            if i == lines.count - 1 && line.isEmpty { return line }
+            if line.hasPrefix("\t") { return String(line.dropFirst()) }
+            // Fall back: strip up to 4 leading spaces.
+            var spaces = 0
+            for ch in line { if ch == " " && spaces < 4 { spaces += 1 } else { break } }
+            return spaces > 0 ? String(line.dropFirst(spaces)) : line
+        }
+        let newText = newLines.joined(separator: "\n")
+        guard newText != linesText else { return }
+        insertText(newText, replacementRange: lineRange)
+        undoManager?.setActionName("Dedent")
+        setSelectedRange(NSRange(location: lineRange.location,
+                                 length: (newText as NSString).length))
+    }
 }
 
 final class StatusBarView: NSView {

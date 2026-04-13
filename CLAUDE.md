@@ -35,7 +35,7 @@ Always build with `./build.sh` when the user asks to test or verify — this pro
 - To manually bump just the patch (without releasing): `bash .claude/bump-version.sh`
 - To release to GitHub: `/release`
 - Always report the built version in output so user can confirm in Claude Code
-- Current version: 1.0.1
+- Current version: 1.1.0.1
 
 ## Architecture
 
@@ -93,7 +93,7 @@ Two grammars don't follow the `TreeSitter<Name>_TreeSitter<Name>` naming convent
 ## Drag-and-drop file opening
 
 Files dragged onto the app window open in a new tab. Implementation notes:
-- `EditorView` uses a private `EditorTextView: NSTextView` subclass that overrides `draggingEntered`, `draggingUpdated`, and `performDragOperation`. Without this, `NSTextView` intercepts file-URL drags and inserts the file path as text instead of opening the file.
+- `EditorView` uses a private `EditorTextView: NSTextView` subclass that overrides `draggingEntered`, `draggingUpdated`, and `performDragOperation`. Without this, `NSTextView` intercepts file-URL drags and inserts the file path as text instead of opening the file. `EditorTextView` also overrides `keyDown` to handle bulk indent/dedent: Tab with a multi-line selection prepends `\t` to every selected line; Shift+Tab strips one leading tab (or up to 4 leading spaces) from every line in the selection (or current line if no selection). Both operations go through `insertText(_:replacementRange:)` for proper undo support.
 - The callback chain is: `EditorTextView.onFilesDropped` → `EditorView.onFilesDropped` → `EditorViewController.onFilesDropped` → `TabController.openFileInTab(at:)`
 - Do NOT rely on `NSTextView`'s default drag handling for file URLs — it always inserts the path as text.
 

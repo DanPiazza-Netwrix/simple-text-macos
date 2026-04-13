@@ -15,6 +15,7 @@ A lightweight, native macOS plaintext editor. No rich formatting — just fast, 
 - **Font size zoom** (Cmd+= / Cmd+-) — persists across launches
 - **Status bar** — version number (bottom-left), live line/column/word/character count (bottom-right)
 - **Print** (Cmd+P)
+- **Bulk indent / dedent** — Tab indents all selected lines; Shift+Tab dedents (removes one leading tab or up to 4 spaces per line); fully undoable
 - **Undo / Redo** — word-boundary granularity (one undo step per word), isolated per tab
 - **Session recovery** — all open tabs (unsaved or modified) persist between app launches, restoring your exact tab layout and content
 - **Window position & size memory** — remembers your window layout on relaunch
@@ -39,6 +40,8 @@ A lightweight, native macOS plaintext editor. No rich formatting — just fast, 
 | Find… | Cmd+F |
 | Find Next | Cmd+G |
 | Find Previous | Cmd+Shift+G |
+| Indent selected lines | Tab (with multi-line selection) |
+| Dedent selected lines | Shift+Tab |
 | Toggle Dark Mode | Cmd+Shift+D |
 | Zoom In | Cmd+= |
 | Zoom Out | Cmd+- |
