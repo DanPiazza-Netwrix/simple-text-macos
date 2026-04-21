@@ -84,6 +84,7 @@ final class SplitController: NSSplitViewController {
         super.viewDidLoad()
         splitView.isVertical = true
         splitView.dividerStyle = .thin
+        updateActivePaneIndicators()
     }
 
     override func viewDidAppear() {
