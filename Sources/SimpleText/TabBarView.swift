@@ -1,5 +1,11 @@
 import AppKit
 
+// MARK: - Pasteboard type for cross-pane tab dragging
+
+extension NSPasteboard.PasteboardType {
+    static let tabDrag = NSPasteboard.PasteboardType("com.simpletext.tab-drag")
+}
+
 // MARK: - Delegate
 
 protocol TabBarDelegate: AnyObject {
@@ -9,6 +15,8 @@ protocol TabBarDelegate: AnyObject {
     func tabBar(_ bar: TabBarView, didCloseOtherTabsThan index: Int)
     func tabBarDidCloseAllTabs(_ bar: TabBarView)
     func tabBar(_ bar: TabBarView, didMoveTabFrom fromIndex: Int, to toIndex: Int)
+    func tabBar(_ bar: TabBarView, didRequestMoveToNewPaneAt index: Int)
+    func tabBar(_ bar: TabBarView, didReceiveDropFromPaneId paneId: String, tabIndex: Int, atLocalIndex destIndex: Int)
 }
 
 // MARK: - TabBarView
@@ -19,15 +27,32 @@ final class TabBarView: NSView {
 
     weak var delegate: TabBarDelegate?
     private(set) var selectedIndex: Int = 0
-    private var buttons: [TabButton] = []
+    private(set) var buttons: [TabButton] = []
+
+    /// Unique identifier for this tab bar's pane (used in cross-pane drag pasteboard data).
+    let paneId = UUID().uuidString
+
+    /// When true, draws a 2px accent line at the bottom to indicate the active pane.
+    var isActivePane: Bool = false {
+        didSet { needsDisplay = true }
+    }
+
+    /// When true, tab context menus show "Move to Other Pane".
+    var isSplitActive: Bool = false
 
     // Drag state
     private var draggingIndex: Int?
     private var dropIndex:     Int = 0
     private var dragTabWidth:  CGFloat = 0
 
+    // Cross-pane drop indicator
+    private var crossPaneDropIndex: Int? {
+        didSet { needsDisplay = true }
+    }
+
     override init(frame: NSRect) {
         super.init(frame: frame)
+        registerForDraggedTypes([.tabDrag])
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -51,9 +76,11 @@ final class TabBarView: NSView {
                 btn.onCloseToRight = { [weak self] in guard let s = self else { return }; s.delegate?.tabBar(s, didCloseTabsToRightOf: idx) }
             }
             btn.onCloseAll    = { [weak self] in guard let s = self else { return }; s.delegate?.tabBarDidCloseAllTabs(s) }
+            btn.onMoveToNewPane = { [weak self] in guard let s = self else { return }; s.delegate?.tabBar(s, didRequestMoveToNewPaneAt: idx) }
             btn.onDragStarted = { [weak self] in self?.beginDrag(from: idx) }
             btn.onDragged     = { [weak self] x in self?.moveDrag(to: x) }
             btn.onDragEnded   = { [weak self] in self?.endDrag() }
+            btn.parentTabBar  = self
             addSubview(btn)
             buttons.append(btn)
         }
@@ -145,26 +172,98 @@ final class TabBarView: NSView {
         }
     }
 
+    /// Cancels an in-progress drag without committing any reorder.
+    /// Used when transitioning to a cross-pane NSDragging session so that
+    /// the intra-pane visual state is reset without reshuffling editorVCs.
+    func cancelDrag() {
+        guard draggingIndex != nil else { return }
+        draggingIndex = nil
+        for btn in buttons { btn.alphaValue = 1.0 }
+        layoutContents()
+    }
+
+    // MARK: - Cross-pane NSDragging destination
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard sender.draggingPasteboard.types?.contains(.tabDrag) == true,
+              let data = sender.draggingPasteboard.data(forType: .tabDrag),
+              let info = try? JSONDecoder().decode(TabDragInfo.self, from: data),
+              info.sourcePaneId != paneId else { return [] }
+        crossPaneDropIndex = dropIndexForDrag(sender)
+        return .move
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard sender.draggingPasteboard.types?.contains(.tabDrag) == true else { return [] }
+        crossPaneDropIndex = dropIndexForDrag(sender)
+        return .move
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        crossPaneDropIndex = nil
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        defer { crossPaneDropIndex = nil }
+        guard let data = sender.draggingPasteboard.data(forType: .tabDrag),
+              let info = try? JSONDecoder().decode(TabDragInfo.self, from: data),
+              info.sourcePaneId != paneId else { return false }
+        let destIndex = dropIndexForDrag(sender)
+        delegate?.tabBar(self, didReceiveDropFromPaneId: info.sourcePaneId, tabIndex: info.tabIndex, atLocalIndex: destIndex)
+        return true
+    }
+
+    private func dropIndexForDrag(_ sender: NSDraggingInfo) -> Int {
+        let pt = convert(sender.draggingLocation, from: nil)
+        let n = buttons.count
+        guard n > 0 else { return 0 }
+        let tabW = buttons[0].frame.width
+        return max(0, min(n, Int((pt.x - Self.leftPad + tabW / 2) / tabW)))
+    }
+
     // MARK: - Drawing
 
     override func draw(_ dirtyRect: NSRect) {
         NSColor.windowBackgroundColor.setFill()
         bounds.fill()
+
+        // Active pane accent line
+        if isActivePane {
+            NSColor.controlAccentColor.setFill()
+            NSRect(x: 0, y: bounds.maxY - 2, width: bounds.width, height: 2).fill()
+        }
+
+        // Cross-pane drop indicator
+        if let dropIdx = crossPaneDropIndex {
+            let n = buttons.count
+            let tabW: CGFloat = n > 0 ? buttons[0].frame.width : Self.tabMaxWidth
+            let x = Self.leftPad + tabW * CGFloat(dropIdx)
+            NSColor.controlAccentColor.setFill()
+            NSRect(x: x - 1, y: 4, width: 2, height: bounds.height - 8).fill()
+        }
     }
 }
 
 // MARK: - TabButton
 
+/// Pasteboard data for cross-pane tab drags.
+struct TabDragInfo: Codable {
+    var sourcePaneId: String
+    var tabIndex: Int
+}
+
 final class TabButton: NSView {
 
-    var onSelect:       (() -> Void)?
-    var onClose:        (() -> Void)?
-    var onCloseToRight: (() -> Void)?
-    var onCloseOthers:  (() -> Void)?
-    var onCloseAll:     (() -> Void)?
-    var onDragStarted:  (() -> Void)?
-    var onDragged:      ((_ mouseX: CGFloat) -> Void)?
-    var onDragEnded:    (() -> Void)?
+    var onSelect:            (() -> Void)?
+    var onClose:             (() -> Void)?
+    var onCloseToRight:      (() -> Void)?
+    var onCloseOthers:       (() -> Void)?
+    var onCloseAll:          (() -> Void)?
+    var onMoveToNewPane:     (() -> Void)?
+    var onDragStarted:       (() -> Void)?
+    var onDragged:           ((_ mouseX: CGFloat) -> Void)?
+    var onDragEnded:         (() -> Void)?
+    weak var parentTabBar:   TabBarView?
 
     private let label: NSTextField
     private var isSelected:   Bool
@@ -268,17 +367,63 @@ final class TabButton: NSView {
             isDragging = true
             onDragStarted?()
         }
+
+        // Check if mouse has left the tab bar bounds — start cross-pane NSDragging session
+        if let bar = parentTabBar {
+            let mouseInBar = bar.convert(event.locationInWindow, from: nil)
+            if !bar.bounds.contains(mouseInBar), !isCrossPaneDragging {
+                startCrossPaneDrag(event: event)
+                return
+            }
+        }
+
         let mouseX = superview?.convert(event.locationInWindow, from: nil).x ?? pt.x
         onDragged?(mouseX)
     }
 
     override func mouseUp(with event: NSEvent) {
-        defer { dragStartPoint = nil; isDragging = false }
+        defer { dragStartPoint = nil; isDragging = false; isCrossPaneDragging = false }
         if isDragging {
             onDragEnded?()
         } else if let start = dragStartPoint, closeRect.contains(start) {
             onClose?()
         }
+    }
+
+    // MARK: - Cross-pane drag (NSDragging source)
+
+    private var isCrossPaneDragging = false
+
+    private func startCrossPaneDrag(event: NSEvent) {
+        guard let bar = parentTabBar,
+              let idx = bar.buttons.firstIndex(of: self) else { return }
+        isCrossPaneDragging = true
+
+        // Cancel the intra-pane drag without committing any reorder.
+        // Calling onDragEnded?() here would invoke endDrag(), which — if the tab
+        // had moved to a different visual slot — would reorder editorVCs via the
+        // delegate and then invalidate `idx`. cancelDrag() resets visual state only.
+        bar.cancelDrag()
+
+        let info = TabDragInfo(sourcePaneId: bar.paneId, tabIndex: idx)
+        guard let data = try? JSONEncoder().encode(info) else { return }
+
+        let pbItem = NSPasteboardItem()
+        pbItem.setData(data, forType: .tabDrag)
+
+        let dragItem = NSDraggingItem(pasteboardWriter: pbItem)
+        dragItem.setDraggingFrame(bounds, contents: snapshot())
+        beginDraggingSession(with: [dragItem], event: event, source: self)
+    }
+
+    private func snapshot() -> NSImage {
+        let img = NSImage(size: bounds.size)
+        img.lockFocus()
+        if let ctx = NSGraphicsContext.current {
+            layer?.render(in: ctx.cgContext)
+        }
+        img.unlockFocus()
+        return img
     }
 
     // MARK: - Context menu
@@ -305,12 +450,26 @@ final class TabButton: NSView {
                                    keyEquivalent: "")
         allItem.target = self
         allItem.isEnabled = true
+
+        menu.addItem(.separator())
+
+        if onMoveToNewPane != nil {
+            let splitActive = parentTabBar?.isSplitActive ?? false
+            let moveTitle = splitActive ? "Move to Other Pane" : "Move to New View"
+            let moveNewItem = menu.addItem(withTitle: moveTitle,
+                                           action: #selector(handleMoveToNewPane),
+                                           keyEquivalent: "")
+            moveNewItem.target = self
+            moveNewItem.isEnabled = true
+        }
+
         return menu
     }
 
-    @objc private func handleCloseToRight() { onCloseToRight?() }
-    @objc private func handleCloseOthers()  { onCloseOthers?() }
-    @objc private func handleCloseAll()     { onCloseAll?() }
+    @objc private func handleCloseToRight()     { onCloseToRight?() }
+    @objc private func handleCloseOthers()       { onCloseOthers?() }
+    @objc private func handleCloseAll()          { onCloseAll?() }
+    @objc private func handleMoveToNewPane()     { onMoveToNewPane?() }
 
     // MARK: - Drawing
 
@@ -352,5 +511,13 @@ final class TabButton: NSView {
         let sz  = str.size()
         let cr  = closeRect
         str.draw(at: NSPoint(x: cr.midX - sz.width / 2, y: cr.midY - sz.height / 2))
+    }
+}
+
+// MARK: - NSDraggingSource
+
+extension TabButton: NSDraggingSource {
+    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+        context == .withinApplication ? .move : []
     }
 }

@@ -1,42 +1,70 @@
 import AppKit
 
+// MARK: - Split direction
+
+enum SplitDirection {
+    case vertical   // left/right
+    case horizontal // top/bottom
+}
+
+// MARK: - TabController
+
 final class TabController: NSViewController {
 
     private let appearanceManager: AppearanceManager
     var editorVCs: [EditorViewController] = []
-    private var selectedIndex: Int = 0
+    private(set) var selectedIndex: Int = 0
     private var currentChildVC: EditorViewController?
 
-    private let tabBar = TabBarView()
+    let tabBar = TabBarView()
     private let editorContainer = NSView()
+
+    /// Track if this is the leftmost pane (should show version in status bar)
+    var isLeftmostPane: Bool = false {
+        didSet { updateEditorViewsVersionDisplay() }
+    }
+
+    // MARK: - Callbacks (set by SplitController)
+
+    /// Fired when this pane receives user focus (e.g. its text view becomes first responder).
+    var onBecameActive: (() -> Void)?
+    /// Replaces direct RecoveryBuffer saves — SplitController aggregates all panes.
+    var onRecoveryNeeded: (() -> Void)?
+    /// Fired when the last tab in this pane is closed (signals SplitController to unsplit).
+    var onLastTabClosed: (() -> Void)?
+    /// Fired when user right-clicks "Move to New View" / "Move to Other Pane" — passes the tab index.
+    var onRequestMoveToNewPane: ((_ tabIndex: Int) -> Void)?
+    /// Fired when a cross-pane drop lands — passes source pane ID, source tab index, dest local index.
+    var onReceiveCrossPaneDrop: ((_ sourcePaneId: String, _ sourceTabIndex: Int, _ destIndex: Int) -> Void)?
+    /// Fired when user right-clicks "Split View Vertically/Horizontally" in the editor context menu.
+    var onRequestSplitPane: ((_ direction: SplitDirection) -> Void)?
+    /// Fired when user right-clicks "Merge Views" in the editor context menu.
+    var onRequestClosePane: (() -> Void)?
+    /// Supply a closure that returns true if close pane should be enabled.
+    var canClosePaneCallback: (() -> Bool)?
 
     // MARK: - Init
 
-    init(appearanceManager: AppearanceManager, initialFileURL: URL? = nil) {
+    init(appearanceManager: AppearanceManager) {
         self.appearanceManager = appearanceManager
         super.init(nibName: nil, bundle: nil)
+    }
 
-        if let url = initialFileURL {
-            // Launched with a specific file — open it, skip session restore.
-            appendEditorVC(fileURL: url)
-        } else if let session = RecoveryBuffer.loadSession(), !session.tabs.isEmpty {
-            // Restore all tabs from the previous session.
-            for entry in session.tabs {
-                if let content = entry.content {
-                    appendEditorVC(fileURL: entry.url, restoredContent: content)
-                } else if let url = entry.url,
-                          FileManager.default.fileExists(atPath: url.path) {
-                    appendEditorVC(fileURL: url)
-                } else if entry.url == nil, entry.content == nil {
-                    appendEditorVC()
-                }
-                // else: had a URL but file is gone — skip
+    /// Restore tabs from recovery entries. Call before the view loads.
+    func restoreTabs(from entries: [TabRecoveryEntry], selectedIndex: Int) {
+        for entry in entries {
+            if let content = entry.content {
+                appendEditorVC(fileURL: entry.url, restoredContent: content)
+            } else if let url = entry.url,
+                      FileManager.default.fileExists(atPath: url.path) {
+                appendEditorVC(fileURL: url)
+            } else if entry.url == nil, entry.content == nil {
+                appendEditorVC()
             }
-            if editorVCs.isEmpty { appendEditorVC() }
-            selectedIndex = min(session.selectedIndex, editorVCs.count - 1)
-        } else {
-            appendEditorVC()
+            // else: had a URL but file is gone — skip
         }
+        if editorVCs.isEmpty { appendEditorVC() }
+        self.selectedIndex = min(selectedIndex, editorVCs.count - 1)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -72,6 +100,16 @@ final class TabController: NSViewController {
         super.viewDidLoad()
         reloadTabBar()
         switchTo(index: selectedIndex)
+
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(editorDidBecomeActive(_:)),
+            name: .simpleTextEditorDidBecomeActive, object: nil)
+    }
+
+    @objc private func editorDidBecomeActive(_ note: Notification) {
+        guard let textView = note.object as? EditorTextView,
+              editorVCs.contains(where: { $0.editorView.textView === textView }) else { return }
+        onBecameActive?()
     }
 
     override func viewDidAppear() {
@@ -147,18 +185,25 @@ final class TabController: NSViewController {
 
     // MARK: - Private helpers
 
-    private func appendEditorVC(fileURL: URL? = nil, restoredContent: String? = nil) {
-        let vc = EditorViewController(
-            appearanceManager: appearanceManager,
-            initialFileURL: fileURL,
-            restoredContent: restoredContent
-        )
+    private func wireCallbacks(_ vc: EditorViewController) {
         vc.onStateChanged = { [weak self] in
             self?.syncWindow()
             self?.snapshotRecovery()
         }
         vc.onTextChanged  = { [weak self] in self?.snapshotRecovery() }
         vc.onFilesDropped = { [weak self] urls in urls.forEach { self?.openFileInTab(at: $0) } }
+        vc.onEditorContextMenu = { [weak self] menu in
+            self?.buildContextMenuItems(menu)
+        }
+    }
+
+    private func appendEditorVC(fileURL: URL? = nil, restoredContent: String? = nil) {
+        let vc = EditorViewController(
+            appearanceManager: appearanceManager,
+            initialFileURL: fileURL,
+            restoredContent: restoredContent
+        )
+        wireCallbacks(vc)
         editorVCs.append(vc)
         selectedIndex = editorVCs.count - 1
 
@@ -263,9 +308,16 @@ final class TabController: NSViewController {
         }
     }
 
-    /// Closes the last remaining tab and replaces it with a fresh blank tab,
-    /// keeping the window open. The session is snapshotted to reflect the blank state.
+    /// Closes the last remaining tab. If `onLastTabClosed` is set (second pane),
+    /// signals the parent to unsplit. Otherwise replaces with a fresh blank tab.
     private func replaceLastTabWithBlank() {
+        if onLastTabClosed != nil {
+            detachCurrent()
+            editorVCs.removeAll()
+            selectedIndex = 0
+            onLastTabClosed?()
+            return
+        }
         detachCurrent()
         editorVCs.removeAll()
         selectedIndex = 0
@@ -273,17 +325,56 @@ final class TabController: NSViewController {
         snapshotRecovery()
     }
 
-    private func snapshotRecovery() {
+    /// Returns the current recovery state for this pane (used by SplitController).
+    func buildRecoveryEntries() -> PaneRecoveryEntry {
         let entries = editorVCs.map { vc -> TabRecoveryEntry in
             let dc = vc.documentController
             if let url = dc.currentURL, !dc.isModified {
-                // Saved and clean — just reopen the file on restore.
                 return TabRecoveryEntry(url: url, content: nil)
             }
-            // Unsaved or modified — persist the content (and URL if known).
             return TabRecoveryEntry(url: dc.currentURL, content: vc.currentContent())
         }
-        RecoveryBuffer.saveSession(RecoverySession(tabs: entries, selectedIndex: selectedIndex))
+        return PaneRecoveryEntry(tabs: entries, selectedIndex: selectedIndex)
+    }
+
+    private func snapshotRecovery() {
+        onRecoveryNeeded?()
+    }
+
+    // MARK: - Cross-pane tab transfer
+
+    /// Detaches and returns the editor VC at `index` without destroying it.
+    /// Returns nil if this is the last tab (use onLastTabClosed instead).
+    func removeTab(at index: Int) -> EditorViewController? {
+        guard editorVCs.count > 1 else { return nil }
+        let wasSelected = (index == selectedIndex)
+        if wasSelected { detachCurrent() }
+        let vc = editorVCs.remove(at: index)
+        vc.onStateChanged = nil
+        vc.onTextChanged = nil
+        vc.onFilesDropped = nil
+        if index < selectedIndex {
+            selectedIndex -= 1
+        } else if wasSelected {
+            selectedIndex = min(selectedIndex, editorVCs.count - 1)
+        }
+        reloadTabBar()
+        if wasSelected { switchTo(index: selectedIndex) }
+        snapshotRecovery()
+        return vc
+    }
+
+    /// Inserts an existing EditorViewController (from another pane) at `index`.
+    func insertTab(_ vc: EditorViewController, at index: Int) {
+        wireCallbacks(vc)
+        let clampedIndex = min(index, editorVCs.count)
+        editorVCs.insert(vc, at: clampedIndex)
+        selectedIndex = clampedIndex
+        if isViewLoaded {
+            reloadTabBar()
+            switchTo(index: selectedIndex)
+        }
+        snapshotRecovery()
     }
 
     private func switchTo(index: Int) {
@@ -310,6 +401,16 @@ final class TabController: NSViewController {
         if let idx = children.firstIndex(of: vc) { removeChild(at: idx) }
         currentChildVC = nil
     }
+
+    /// Update all editor views' version display based on isLeftmostPane flag.
+    private func updateEditorViewsVersionDisplay() {
+        for vc in editorVCs {
+            vc.editorView.showVersionInStatusBar = isLeftmostPane
+        }
+    }
+
+    /// Public wrapper so SplitController can trigger a tab bar refresh (e.g. after split state changes).
+    func reloadTabBarIfNeeded() { reloadTabBar() }
 
     private func reloadTabBar() {
         let titles   = editorVCs.map { $0.documentController.currentURL?.lastPathComponent ?? "Untitled" }
@@ -381,6 +482,46 @@ extension TabController: TabBarDelegate {
         }
         reloadTabBar()
         snapshotRecovery()
+    }
+
+    func tabBar(_ bar: TabBarView, didRequestMoveToNewPaneAt index: Int) {
+        onRequestMoveToNewPane?(index)
+    }
+
+    func tabBar(_ bar: TabBarView, didReceiveDropFromPaneId paneId: String, tabIndex: Int, atLocalIndex destIndex: Int) {
+        onReceiveCrossPaneDrop?(paneId, tabIndex, destIndex)
+    }
+}
+
+// MARK: - Editor context menu (split/close pane)
+
+extension TabController {
+    private func buildContextMenuItems(_ menu: NSMenu) {
+        menu.addItem(.separator())
+
+        let alreadySplit = canClosePaneCallback?() ?? false
+        let splitVItem = menu.addItem(withTitle: "Split View Vertically", action: #selector(handleSplitVerticalFromMenu), keyEquivalent: "")
+        splitVItem.target = self
+        splitVItem.isEnabled = !alreadySplit
+
+        let closeItem = menu.addItem(withTitle: "Merge Views", action: #selector(handleCloseFromMenu), keyEquivalent: "")
+        closeItem.target = self
+        closeItem.isEnabled = alreadySplit
+    }
+
+    @objc func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        let alreadySplit = canClosePaneCallback?() ?? false
+        if menuItem.action == #selector(handleSplitVerticalFromMenu) { return !alreadySplit }
+        if menuItem.action == #selector(handleCloseFromMenu) { return alreadySplit }
+        return true
+    }
+
+    @objc private func handleSplitVerticalFromMenu() {
+        onRequestSplitPane?(.vertical)
+    }
+
+    @objc private func handleCloseFromMenu() {
+        onRequestClosePane?()
     }
 }
 

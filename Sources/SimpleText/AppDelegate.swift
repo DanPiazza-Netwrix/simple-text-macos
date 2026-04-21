@@ -25,7 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        let unsaved = (windowController?.tabController.editorVCs ?? [])
+        let unsaved = (windowController?.splitController.allEditorVCs ?? [])
             .filter { $0.documentController.currentURL != nil && $0.documentController.isModified }
         guard !unsaved.isEmpty else { return .terminateNow }
 
@@ -69,7 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let wc = windowController {
             // App already running — open in a tab
             wc.window?.orderFrontRegardless()
-            wc.tabController.openFileInTab(at: url)
+            wc.splitController.openFileInTab(at: url)
         } else {
             // App just launched — store for applicationDidFinishLaunching
             pendingFileURL = url
@@ -100,7 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(fileItem)
         let fileMenu = NSMenu(title: "File")
         fileItem.submenu = fileMenu
-        fileMenu.addItem(item("New",        action: #selector(TabController.newTab(_:)),              key: "t"))
+        fileMenu.addItem(item("New",        action: #selector(SplitController.newTab(_:)),              key: "t"))
         fileMenu.addItem(item("Open…",     action: #selector(EditorViewController.openDocument(_:)),  key: "o"))
         fileMenu.addItem(.separator())
         fileMenu.addItem(item("Save",      action: #selector(EditorViewController.saveDocument(_:)),  key: "s"))
@@ -110,8 +110,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fileMenu.addItem(.separator())
         fileMenu.addItem(item("Print…",    action: Selector(("print:")),                               key: "p"))
         fileMenu.addItem(.separator())
-        fileMenu.addItem(item("Close Tab",      action: #selector(TabController.closeTab(_:)),        key: "w"))
-        fileMenu.addItem(item("Close All Tabs", action: #selector(TabController.closeAllTabs(_:)),   key: ""))
+        fileMenu.addItem(item("Close Tab",      action: #selector(SplitController.closeTab(_:)),        key: "w"))
+        fileMenu.addItem(item("Close All Tabs", action: #selector(SplitController.closeAllTabs(_:)),   key: ""))
 
         // ── Edit menu ─────────────────────────────────────────────────────
         let editItem = NSMenuItem()
@@ -144,6 +144,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         viewMenu.addItem(item("Zoom In",    action: #selector(EditorViewController.zoomIn(_:)),    key: "="))
         viewMenu.addItem(item("Zoom Out",   action: #selector(EditorViewController.zoomOut(_:)),   key: "-"))
         viewMenu.addItem(item("Reset Zoom", action: #selector(EditorViewController.resetZoom(_:)), key: "0"))
+        viewMenu.addItem(.separator())
+        let splitItem = item("Split Editor", action: #selector(SplitController.splitPane(_:)), key: "\\")
+        viewMenu.addItem(splitItem)
+        viewMenu.addItem(item("Merge Views",             action: #selector(SplitController.unsplitPane(_:)),       key: ""))
+        viewMenu.addItem(item("Move Tab to Other Pane", action: #selector(SplitController.moveTabToOtherPane(_:)), key: ""))
 
         // ── Find menu ─────────────────────────────────────────────────────
         let findItem = NSMenuItem()
