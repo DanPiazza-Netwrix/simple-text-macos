@@ -7,6 +7,7 @@ A lightweight, native macOS plaintext editor. No rich formatting — just fast, 
 ## Features
 
 - **Tabs** — Cmd+T new tab, Cmd+W close tab, File → Close All Tabs; drag to reorder; right-click for "Close Tabs to the Right" / "Close Other Tabs"; closing the last tab opens a fresh blank tab (window stays open)
+- **Split view** — Right-click in editor → "Split View Vertically" to create additional side-by-side panes; drag tabs between panes or right-click → "Move to Other Pane"; "Merge Views" is enabled when multiple panes exist; closing the last tab in a pane auto-closes the pane; split state persists across launches
 - **Line numbers** with automatic gutter width
 - **Dark / light mode toggle** (Cmd+Shift+D) — independent of system setting
 - **Remove blank lines** (Edit menu)
@@ -46,6 +47,7 @@ A lightweight, native macOS plaintext editor. No rich formatting — just fast, 
 | Zoom In | Cmd+= |
 | Zoom Out | Cmd+- |
 | Reset Zoom | Cmd+0 |
+| Split Editor | Cmd+\\ |
 | Print… | Cmd+P |
 | Quit | Cmd+Q |
 
@@ -53,7 +55,7 @@ A lightweight, native macOS plaintext editor. No rich formatting — just fast, 
 
 **Background mode:** Clicking the red X hides the window — the app keeps running in the Dock. To fully quit, use Cmd+Q or SimpleText → Quit SimpleText.
 
-**Session recovery:** All tabs (saved and unsaved) are automatically persisted to `~/Library/Application Support/SimpleText/session.json` and restored on next launch. The selected tab index is also restored. Use Edit → "Clear Unsaved Buffer" to wipe the recovery state if needed.
+**Session recovery:** All tabs across all panes (saved and unsaved) are automatically persisted to `~/Library/Application Support/SimpleText/session.json` and restored on next launch. The selected tab index, active pane, and split state are also restored. Use Edit → "Clear Unsaved Buffer" to wipe the recovery state if needed.
 
 **Save prompts:** When closing a tab (Cmd+W) or using "Close Tabs to the Right" / "Close Other Tabs", you'll be prompted to save if the tab has a named file with unsaved changes, or if an untitled tab has content. Empty or clean tabs close without a prompt. Cmd+Q prompts for all unsaved named files before quitting.
 
@@ -107,15 +109,16 @@ Built with **Swift + AppKit**, structured for future cross-platform portability:
 | File | Role |
 |------|------|
 | `TextEngine.swift` | Pure Swift text logic — no AppKit, portable to other platforms |
-| `RecoveryBuffer.swift` | Auto-saves full session (all tabs) to `~/Library/Application Support/SimpleText/session.json` |
+| `SplitController.swift` | `NSSplitViewController` managing 1–2 `TabController` panes; handles split/unsplit, cross-pane tab transfer, session recovery aggregation |
+| `RecoveryBuffer.swift` | Auto-saves pane-aware session (all panes and tabs) to `~/Library/Application Support/SimpleText/session.json` |
 | `EditorView.swift` | `NSScrollView` + `NSTextView` with `LineNumberRulerView` as a sibling view; `StatusBarView` anchored at the bottom; intercepts file-URL drags to open in a new tab instead of inserting text |
 | `LineNumberRulerView.swift` | Custom `NSView` line number gutter with dynamic width; sibling to the scroll view |
-| `TabBarView.swift` | Chrome-style tab bar with pill-shaped active tabs; drag-to-reorder with animation; right-click context menu |
-| `TabController.swift` | Manages multiple editor tabs; routes Finder file opens without losing current work; prompts to save on close (named files and untitled buffers with content); bulk close ("Close Tabs to the Right" / "Close Other Tabs") processes tabs one at a time |
+| `TabBarView.swift` | Chrome-style tab bar with pill-shaped active tabs; drag-to-reorder with animation; cross-pane drag-and-drop; right-click context menu; active pane accent indicator |
+| `TabController.swift` | Single pane managing multiple editor tabs; cross-pane tab transfer API; routes Finder file opens; prompts to save on close; bulk close processes tabs one at a time |
 | `DocumentController.swift` | File I/O (open, save, new) and recovery buffer integration |
 | `AppearanceManager.swift` | Dark / light mode toggle via `window.appearance` override |
 | `EditorViewController.swift` | Central coordinator; owns UI subviews and handles menu actions |
-| `WindowController.swift` | Window lifecycle; hides on close (background mode) |
+| `WindowController.swift` | Window lifecycle; owns SplitController; hides on close (background mode) |
 | `AppDelegate.swift` | App lifecycle and programmatic menu bar construction |
 | `SyntaxHighlighter.swift` | Markdown syntax highlighting (regex-based, VS Code–matched colors); uses `NSLayoutManager` temporary attributes (not undo-tracked) |
 | `HighlightCoordinator.swift` | Wraps Neon's `TextViewHighlighter` for Tree-sitter–based syntax highlighting of all non-Markdown languages |

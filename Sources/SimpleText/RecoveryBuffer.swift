@@ -12,7 +12,20 @@ struct TabRecoveryEntry: Codable {
     var content: String?
 }
 
+struct PaneRecoveryEntry: Codable {
+    var tabs: [TabRecoveryEntry]
+    var selectedIndex: Int
+}
+
 struct RecoverySession: Codable {
+    var panes: [PaneRecoveryEntry]
+    var activePaneIndex: Int
+    /// Divider position as a fraction of the split view width (0–1). nil when not split.
+    var dividerFraction: Double?
+}
+
+/// Legacy format (pre-split-view) for one-time migration.
+private struct LegacyRecoverySession: Codable {
     var tabs: [TabRecoveryEntry]
     var selectedIndex: Int
 }
@@ -44,19 +57,25 @@ enum RecoveryBuffer {
     }
 
     static func loadSession() -> RecoverySession? {
-        // Try the current JSON format first.
-        if let url = sessionURL,
-           let data = try? Data(contentsOf: url),
-           let session = try? JSONDecoder().decode(RecoverySession.self, from: data) {
-            return session
+        if let url = sessionURL, let data = try? Data(contentsOf: url) {
+            // Try new pane-aware format first.
+            if let session = try? JSONDecoder().decode(RecoverySession.self, from: data) {
+                return session
+            }
+            // Fall back to pre-split-view format (flat tabs + selectedIndex).
+            if let legacy = try? JSONDecoder().decode(LegacyRecoverySession.self, from: data) {
+                return RecoverySession(
+                    panes: [PaneRecoveryEntry(tabs: legacy.tabs, selectedIndex: legacy.selectedIndex)],
+                    activePaneIndex: 0)
+            }
         }
         // One-time migration from the old single-file format.
         if let url = legacyURL,
            let content = try? String(contentsOf: url, encoding: .utf8),
            !content.isEmpty {
             return RecoverySession(
-                tabs: [TabRecoveryEntry(url: nil, content: content)],
-                selectedIndex: 0)
+                panes: [PaneRecoveryEntry(tabs: [TabRecoveryEntry(url: nil, content: content)], selectedIndex: 0)],
+                activePaneIndex: 0)
         }
         return nil
     }

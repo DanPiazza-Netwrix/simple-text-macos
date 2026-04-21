@@ -57,12 +57,24 @@ git push origin main
 git push origin v<version>
 ```
 
-### 9. Create GitHub release
+### 9. Draft release notes
+- Find the previous release tag: `gh release list --limit 10` — pick the tag just before the one being released.
+- Get the commit log since that tag: `git log <prev-tag>..v<version> --oneline`
+- Write user-facing release notes from those commits. Group into sections that apply (omit empty sections):
+  - **New** — user-visible features
+  - **Fixed** — bug fixes
+  - **Improved** — enhancements to existing behaviour
+  - **Chores** — version bumps, docs, CI, tooling (keep brief or omit if uninteresting)
+- Keep each bullet short (one line). Skip purely internal/tooling commits that users won't care about.
+- Show the draft to the user and wait for approval or edits before proceeding.
+
+### 10. Create GitHub release
+Once the user approves the release notes:
 ```bash
 gh release create v<version> build/SimpleText.app.zip \
   --title "SimpleText v<version>" \
-  --notes "See [README](https://github.com/DanPiazza-Netwrix/simple-text-macos#readme) for full feature list."
+  --notes "<approved release notes>"
 ```
 
-### 10. Report
+### 11. Report
 Output the release URL so the user can verify it.

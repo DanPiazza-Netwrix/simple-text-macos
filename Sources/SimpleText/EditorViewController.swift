@@ -24,6 +24,11 @@ final class EditorViewController: NSViewController {
         didSet { editorView.onFilesDropped = onFilesDropped }
     }
 
+    /// Called when right-clicking in the editor to show split/close pane options.
+    var onEditorContextMenu: ((NSMenu) -> Void)? {
+        didSet { editorView.onContextMenu = onEditorContextMenu }
+    }
+
     private var textView: NSTextView { editorView.textView }
 
     // MARK: - Init

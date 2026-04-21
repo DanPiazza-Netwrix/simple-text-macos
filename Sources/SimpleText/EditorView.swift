@@ -4,6 +4,15 @@ import AppKit
 // This subclass redirects file drops to the onFilesDropped handler instead.
 final class EditorTextView: NSTextView {
     var onFilesDropped: (([URL]) -> Void)?
+    var onContextMenu: ((NSMenu) -> Void)?
+
+    override func becomeFirstResponder() -> Bool {
+        let result = super.becomeFirstResponder()
+        if result {
+            NotificationCenter.default.post(name: .simpleTextEditorDidBecomeActive, object: self)
+        }
+        return result
+    }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         if hasFileURLs(sender) { return .copy }
@@ -32,6 +41,16 @@ final class EditorTextView: NSTextView {
     private func fileURLs(from sender: NSDraggingInfo) -> [URL] {
         (sender.draggingPasteboard.readObjects(forClasses: [NSURL.self],
          options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
+    }
+
+    // MARK: - Bulk indent / dedent
+
+    // MARK: - Context menu for split/close pane
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = super.menu(for: event) ?? NSMenu()
+        onContextMenu?(menu)
+        return menu
     }
 
     // MARK: - Bulk indent / dedent
@@ -123,29 +142,51 @@ final class StatusBarView: NSView {
         return b
     }()
 
+    var showVersion: Bool = false {
+        didSet { updateLayout() }
+    }
+
+    private var versionLabelLeadingConstraint: NSLayoutConstraint!
+    private var labelLeadingWithVersionConstraint: NSLayoutConstraint!
+    private var labelLeadingAloneConstraint: NSLayoutConstraint!
+
     override init(frame: NSRect) {
         super.init(frame: frame)
-        if let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
-            versionLabel.stringValue = "v\(v)"
-        }
         addSubview(separator)
         addSubview(versionLabel)
         addSubview(label)
+
+        versionLabelLeadingConstraint = versionLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8)
+        labelLeadingWithVersionConstraint = label.leadingAnchor.constraint(equalTo: versionLabel.trailingAnchor, constant: 8)
+        labelLeadingAloneConstraint = label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8)
+
         NSLayoutConstraint.activate([
             separator.leadingAnchor.constraint(equalTo: leadingAnchor),
             separator.trailingAnchor.constraint(equalTo: trailingAnchor),
             separator.topAnchor.constraint(equalTo: topAnchor),
 
-            versionLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
             versionLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            versionLabel.trailingAnchor.constraint(lessThanOrEqualTo: label.leadingAnchor, constant: -8),
-
             label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
+        updateLayout()
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    private func updateLayout() {
+        if showVersion {
+            versionLabel.isHidden = false
+            labelLeadingAloneConstraint.isActive = false
+            versionLabelLeadingConstraint.isActive = true
+            labelLeadingWithVersionConstraint.isActive = true
+        } else {
+            versionLabel.isHidden = true
+            labelLeadingWithVersionConstraint.isActive = false
+            versionLabelLeadingConstraint.isActive = false
+            labelLeadingAloneConstraint.isActive = true
+        }
+    }
 }
 
 final class EditorView: NSView {
@@ -157,6 +198,21 @@ final class EditorView: NSView {
 
     var onFilesDropped: (([URL]) -> Void)? {
         didSet { (textView as? EditorTextView)?.onFilesDropped = onFilesDropped }
+    }
+
+    var onContextMenu: ((NSMenu) -> Void)? {
+        didSet { (textView as? EditorTextView)?.onContextMenu = onContextMenu }
+    }
+
+    var showVersionInStatusBar: Bool = false {
+        didSet {
+            statusBar.showVersion = showVersionInStatusBar
+            if showVersionInStatusBar, statusBar.versionLabel.stringValue.isEmpty {
+                if let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+                    statusBar.versionLabel.stringValue = "v\(v)"
+                }
+            }
+        }
     }
 
     override init(frame: NSRect) {
@@ -241,4 +297,10 @@ final class EditorView: NSView {
         scrollView.backgroundColor        = .textBackgroundColor
         scrollView.documentView           = textView
     }
+}
+
+// MARK: - Notification name for active pane tracking
+
+extension Notification.Name {
+    static let simpleTextEditorDidBecomeActive = Notification.Name("SimpleTextEditorDidBecomeActive")
 }

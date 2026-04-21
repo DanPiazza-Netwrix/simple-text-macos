@@ -3,7 +3,7 @@ import AppKit
 final class WindowController: NSWindowController, NSWindowDelegate {
 
     private(set) var appearanceManager: AppearanceManager!
-    private(set) var tabController: TabController!
+    private(set) var splitController: SplitController!
 
     convenience init(initialFileURL: URL? = nil) {
         let window = NSWindow(
@@ -19,8 +19,8 @@ final class WindowController: NSWindowController, NSWindowDelegate {
         window.delegate = self
 
         appearanceManager = AppearanceManager(window: window)
-        tabController = TabController(appearanceManager: appearanceManager, initialFileURL: initialFileURL)
-        window.contentViewController = tabController
+        splitController = SplitController(appearanceManager: appearanceManager, initialFileURL: initialFileURL)
+        window.contentViewController = splitController
 
         // Restore frame AFTER contentViewController is set (setting it resizes the window)
         window.setFrameAutosaveName("SimpleTextMain")
@@ -32,7 +32,7 @@ final class WindowController: NSWindowController, NSWindowDelegate {
     // MARK: - NSWindowDelegate
 
     func windowWillReturnUndoManager(_ window: NSWindow) -> UndoManager? {
-        tabController.activeEditorVC?.tabUndoManager
+        splitController.activeEditorVC?.tabUndoManager
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
