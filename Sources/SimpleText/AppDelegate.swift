@@ -3,7 +3,7 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var windowController: WindowController?
-    private var pendingFileURL: URL?
+    private var pendingFileURLs: [URL] = []
 
     // MARK: - Lifecycle
 
@@ -12,16 +12,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Prefer a Finder-opened file over CLI args; CLI args over recovery buffer
-        let initialURL: URL? = pendingFileURL
-            ?? CommandLine.arguments.dropFirst()
-                .first(where: { FileManager.default.fileExists(atPath: $0) })
+        // Prefer Finder-opened files over CLI args; CLI args over recovery buffer
+        let urlsToOpen: [URL] = !pendingFileURLs.isEmpty
+            ? pendingFileURLs
+            : CommandLine.arguments.dropFirst()
+                .filter { FileManager.default.fileExists(atPath: $0) }
                 .map { URL(fileURLWithPath: $0) }
-        pendingFileURL = nil
+        pendingFileURLs = []
 
-        windowController = WindowController(initialFileURL: initialURL)
+        windowController = WindowController(initialFileURL: urlsToOpen.first)
         windowController?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
+
+        // Open additional files (beyond the first, which WindowController handles)
+        if let wc = windowController {
+            for url in urlsToOpen.dropFirst() {
+                wc.splitController.openFileInTab(at: url)
+            }
+        }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -65,14 +73,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // launched by opening a file (double-click, "Open With…", Dock drop).
     // Also called when the app is already running and a file is opened.
     func application(_ application: NSApplication, open urls: [URL]) {
-        guard let url = urls.first else { return }
+        guard !urls.isEmpty else { return }
         if let wc = windowController {
-            // App already running — open in a tab
+            // App already running — open each file in its own tab
             wc.window?.orderFrontRegardless()
-            wc.splitController.openFileInTab(at: url)
+            for url in urls {
+                wc.splitController.openFileInTab(at: url)
+            }
         } else {
             // App just launched — store for applicationDidFinishLaunching
-            pendingFileURL = url
+            pendingFileURLs = urls
         }
     }
 
