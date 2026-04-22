@@ -308,10 +308,10 @@ final class TabController: NSViewController {
         }
     }
 
-    /// Closes the last remaining tab. If `onLastTabClosed` is set (second pane),
+    /// Closes the last remaining tab. If this is a secondary pane in a split,
     /// signals the parent to unsplit. Otherwise replaces with a fresh blank tab.
     private func replaceLastTabWithBlank() {
-        if onLastTabClosed != nil {
+        if onLastTabClosed != nil && (canClosePaneCallback?() == true) {
             detachCurrent()
             editorVCs.removeAll()
             selectedIndex = 0
