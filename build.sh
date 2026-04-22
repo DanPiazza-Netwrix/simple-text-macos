@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_NAME="SimpleText"
 BUNDLE_ID="com.simpletext.app"
-VERSION="1.2.1.4"
+VERSION="1.2.2"
 
 # Increment local dev digit before each build (1.0.0 → 1.0.0.1 → 1.0.0.2 …)
 # Strips automatically when /release command is used.
