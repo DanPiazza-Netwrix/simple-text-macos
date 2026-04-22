@@ -33,11 +33,20 @@ cp "${BUILD_DIR}/${APP_NAME}" "${APP_DIR}/MacOS/${APP_NAME}"
 # Copy SPM resource bundles (tree-sitter grammar query files used by Neon)
 find -L "${BUILD_DIR}" -maxdepth 1 -name "*.bundle" -exec cp -R {} "${APP_DIR}/Resources/" \;
 
-# Copy app icon
-if [ -f AppIcon.icns ]; then
-    cp AppIcon.icns "${APP_DIR}/Resources/AppIcon.icns"
+# Select app icon: dev builds (4-digit version) use icon_dev.icns, releases use icon_release.icns
+ICON_PARTS=$(echo "$VERSION" | tr '.' '\n' | wc -l | tr -d ' ')
+if [ "$ICON_PARTS" -ge 4 ] && [ -f icon_dev.icns ]; then
+    ICON_ICNS="icon_dev.icns"
+elif [ -f icon_release.icns ]; then
+    ICON_ICNS="icon_release.icns"
 else
-    echo "WARNING: AppIcon.icns not found — app will build without an icon" >&2
+    ICON_ICNS=""
+fi
+
+if [ -n "$ICON_ICNS" ]; then
+    cp "$ICON_ICNS" "${APP_DIR}/Resources/AppIcon.icns"
+else
+    echo "WARNING: No icon found — app will build without an icon" >&2
 fi
 
 # Write Info.plist
