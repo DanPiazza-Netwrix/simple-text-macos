@@ -96,6 +96,9 @@ final class EditorViewController: NSViewController {
         }
         onTextChanged?()
         editorView.rulerView.needsDisplay = true
+        // NSTextView's partial invalidation can leave stale pixels when lines shift after
+        // a deletion — force a full redraw so no stale content lingers on screen.
+        textView.needsDisplay = true
         updateStatusBar()
     }
 
@@ -187,7 +190,14 @@ extension EditorViewController: NSTextViewDelegate {
     func textView(_ textView: NSTextView,
                   shouldChangeTextIn range: NSRange,
                   replacementString string: String?) -> Bool {
-        if let s = string,
+        // Only break undo coalescing for single-character typing at word boundaries.
+        // Calling it for multi-character replacements (paste, auto-correct) corrupts
+        // NSTextView's internal undo group state and causes phantom deletions on
+        // subsequent edits. Also skip during programmatic indent/dedent insertions.
+        let isProgrammatic = (textView as? EditorTextView)?.isProgrammaticTextChange ?? false
+        if !isProgrammatic,
+           let s = string,
+           s.count == 1,
            s.unicodeScalars.contains(where: {
                CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters).contains($0)
            }) {

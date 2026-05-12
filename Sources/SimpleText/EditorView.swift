@@ -5,6 +5,10 @@ import AppKit
 final class EditorTextView: NSTextView {
     var onFilesDropped: (([URL]) -> Void)?
     var onContextMenu: ((NSMenu) -> Void)?
+    /// Set true while indentSelectedLines/dedentSelectedLines are running so the
+    /// shouldChangeTextIn delegate skips breakUndoCoalescing() — calling it during
+    /// a programmatic insertText can corrupt NSTextView's internal undo coalescing state.
+    var isProgrammaticTextChange = false
 
     override func becomeFirstResponder() -> Bool {
         let result = super.becomeFirstResponder()
@@ -85,10 +89,16 @@ final class EditorTextView: NSTextView {
             // Don't indent the empty sentinel after a trailing newline.
             (i == lines.count - 1 && line.isEmpty) ? line : "\t" + line
         }.joined(separator: "\n")
+        isProgrammaticTextChange = true
         insertText(newText, replacementRange: lineRange)
+        isProgrammaticTextChange = false
         undoManager?.setActionName("Indent")
-        setSelectedRange(NSRange(location: lineRange.location,
-                                 length: (newText as NSString).length))
+        // lineRange(for:) always includes the trailing newline, but the user's original
+        // selection may not have. Restore only what they actually selected.
+        let indentedLen = (newText as NSString).length
+        let indentSelLen = lineRange.length > sel.length && newText.hasSuffix("\n")
+            ? indentedLen - 1 : indentedLen
+        setSelectedRange(NSRange(location: lineRange.location, length: indentSelLen))
     }
 
     private func dedentSelectedLines() {
@@ -108,10 +118,14 @@ final class EditorTextView: NSTextView {
         }
         let newText = newLines.joined(separator: "\n")
         guard newText != linesText else { return }
+        isProgrammaticTextChange = true
         insertText(newText, replacementRange: lineRange)
+        isProgrammaticTextChange = false
         undoManager?.setActionName("Dedent")
-        setSelectedRange(NSRange(location: lineRange.location,
-                                 length: (newText as NSString).length))
+        let dedentedLen = (newText as NSString).length
+        let dedentSelLen = lineRange.length > sel.length && newText.hasSuffix("\n")
+            ? dedentedLen - 1 : dedentedLen
+        setSelectedRange(NSRange(location: lineRange.location, length: dedentSelLen))
     }
 }
 

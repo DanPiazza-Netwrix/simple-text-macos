@@ -31,8 +31,15 @@ final class LineNumberRulerView: NSView {
         guard let tv = textView else { return }
 
         let nc = NotificationCenter.default
+        // Update width and redisplay together — width must never be mutated inside draw()
+        // because changing a constraint during draw triggers a layout pass that resizes
+        // sibling views (scroll view → text view → text container), which can corrupt
+        // NSTextView's cursor state mid-operation and cause phantom deletions.
         let refresh: @Sendable (Notification) -> Void = { [weak self] _ in
-            DispatchQueue.main.async { self?.needsDisplay = true }
+            DispatchQueue.main.async {
+                self?.updateWidthIfNeeded()
+                self?.needsDisplay = true
+            }
         }
 
         let clipView = tv.enclosingScrollView?.contentView
@@ -44,6 +51,19 @@ final class LineNumberRulerView: NSView {
             nc.addObserver(forName: NSTextStorage.didProcessEditingNotification,
                            object: tv.textStorage, queue: .main, using: refresh),
         ]
+    }
+
+    /// Adjusts the ruler's width constraint to fit the current line-count digit count.
+    /// Must be called outside of draw() — never mutate constraints inside a draw pass.
+    private func updateWidthIfNeeded() {
+        guard let tv = textView else { return }
+        let totalLines = (tv.string as NSString).components(separatedBy: "\n").count
+        let font = NSFont.monospacedSystemFont(ofSize: NSFont.smallSystemFontSize + 1, weight: .regular)
+        let digits = max(String(totalLines).count, 2)
+        let needed = font.maximumAdvancement.width * CGFloat(digits) + 18
+        if abs((widthConstraint?.constant ?? 44) - needed) > 0.5 {
+            widthConstraint?.constant = needed
+        }
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -60,13 +80,7 @@ final class LineNumberRulerView: NSView {
             .foregroundColor: NSColor.secondaryLabelColor,
         ]
 
-        // Auto-size width based on digit count
-        let totalLines = nsText.components(separatedBy: "\n").count
-        let digits = max(String(totalLines).count, 2)
-        let needed = font.maximumAdvancement.width * CGFloat(digits) + 18
-        if abs((widthConstraint?.constant ?? 44) - needed) > 0.5 {
-            widthConstraint?.constant = needed
-        }
+        // Width was already set by updateWidthIfNeeded() — do NOT mutate it here.
         let w = widthConstraint?.constant ?? bounds.width
 
         let clipView = scrollView.contentView
@@ -77,7 +91,11 @@ final class LineNumberRulerView: NSView {
         // a stale layout and produce wrong/overlapping line numbers.
         lm.ensureLayout(for: tc)
 
-        let glyphRange = lm.glyphRange(forBoundingRect: visibleRect, in: tc)
+        // Expand the query rect by a few points so the last partially-visible
+        // line fragment is always included (glyphRange(forBoundingRect:) can
+        // clip right at the boundary and miss the final line).
+        let queryRect = visibleRect.insetBy(dx: 0, dy: -4)
+        let glyphRange = lm.glyphRange(forBoundingRect: queryRect, in: tc)
         guard glyphRange.length > 0 else { return }
 
         var lineNumbersDrawn = Set<Int>()
